@@ -21,8 +21,14 @@ export default async function handler(req: any, res: any) {
 
     const ai = getGeminiClient();
     if (!ai) {
+      const spent = financialData?.monthlyStats?.totalSpent;
+      const spentStr = typeof spent === "number" && spent > 0 ? `₹${spent.toLocaleString("en-IN")}` : null;
+      const reply = spentStr
+        ? `Based on your recorded data: You have logged expenses totaling ${spentStr} this month. How can I help you manage your budgets or review your spending today?`
+        : "I am ready to help manage your finances. You can ask me to track expenses, review your budgets, or analyze spending once transactions are recorded.";
+
       return res.status(200).json({
-        reply: `Based on your recorded data: You have logged expenses totaling ₹${financialData?.monthlyStats?.totalSpent || "31,400"} this month, with Food and Transport being your highest categories. You have active budgets in place. How can I help you manage your finances today?`,
+        reply,
         suggestedActions: []
       });
     }

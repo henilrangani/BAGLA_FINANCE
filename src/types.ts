@@ -275,6 +275,7 @@ export interface UserSettings {
   isAppLocked?: boolean;
   localEncryptionEnabled?: boolean;
   offlineMode?: boolean; // When true, runs 100% air-gapped without external network calls
+  isDemoMode?: boolean; // Explicit toggle for Demo / Sample Sandbox mode
   autoSyncUpiConfig?: AutoSyncUpiConfig;
   nightlyCashReminderConfig?: NightlyCashReminderConfig;
 }

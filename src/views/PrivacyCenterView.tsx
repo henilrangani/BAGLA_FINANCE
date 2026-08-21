@@ -33,7 +33,9 @@ export const PrivacyCenterView: React.FC = () => {
     formatCurrency,
     setAppPasscode,
     lockApp,
-    exportEncryptedLedger
+    exportEncryptedLedger,
+    toggleDemoMode,
+    loadSampleData
   } = useFinance();
 
   const [pinInput, setPinInput] = useState(settings.passcode || "");
@@ -436,6 +438,58 @@ export const PrivacyCenterView: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Sandbox & Demo Data Management */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs space-y-5">
+        <div className="border-b border-gray-100 dark:border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-bold text-gray-950 dark:text-white flex items-center gap-2">
+              <Database className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <span>Demo Sandbox vs. Real User Ledger</span>
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
+              Toggle between exploration sample records and your private real ledger.
+            </p>
+          </div>
+          <span
+            className={`text-xs px-3 py-1 rounded-full font-bold self-start sm:self-auto border ${
+              settings.isDemoMode
+                ? "bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
+                : "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+            }`}
+          >
+            {settings.isDemoMode ? "Demo Mode Active" : "Real Ledger Active"}
+          </span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button
+            onClick={toggleDemoMode}
+            className={`px-5 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-colors cursor-pointer ${
+              settings.isDemoMode
+                ? "bg-gray-100 dark:bg-slate-800 text-gray-800 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-200 dark:hover:bg-slate-700"
+                : "bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span>{settings.isDemoMode ? "Switch to Real Clean Ledger" : "Load Sample Demo Data"}</span>
+          </button>
+
+          {settings.isDemoMode && (
+            <button
+              onClick={() => {
+                if (window.confirm("Reload default sample dataset?")) {
+                  loadSampleData();
+                }
+              }}
+              className="px-5 py-3 rounded-2xl bg-gray-50 hover:bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center gap-2 border border-gray-200 dark:border-slate-700 transition-colors cursor-pointer"
+            >
+              <Zap className="w-4 h-4 text-purple-600" />
+              <span>Reset to Default Demo Dataset</span>
+            </button>
+          )}
         </div>
       </div>
 

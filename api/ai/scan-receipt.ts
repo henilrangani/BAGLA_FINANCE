@@ -10,19 +10,16 @@ function getGeminiClient(): GoogleGenAI | null {
 
 function fallbackReceiptScan() {
   return {
-    merchant: "Haldiram's Sweets & Restaurant",
+    error: "AI Receipt Scanner is offline or API key is not configured. Please enter transaction details manually.",
+    merchant: "",
     date: new Date().toISOString().split("T")[0],
-    totalAmount: 682.50,
-    subtotal: 650.00,
-    taxAmount: 32.50,
-    category: "Food",
-    paymentMethod: "UPI",
-    confidence: 0.95,
-    items: [
-      { name: "Special Thali", quantity: 1, price: 350.00 },
-      { name: "Paneer Tikka Roll", quantity: 1, price: 180.00 },
-      { name: "Gulab Jamun (2 pcs)", quantity: 1, price: 120.00 }
-    ]
+    totalAmount: 0,
+    subtotal: 0,
+    taxAmount: 0,
+    category: "Other",
+    paymentMethod: "upi",
+    confidence: 0,
+    items: []
   };
 }
 

@@ -185,8 +185,14 @@ app.post("/api/ai/chat", async (req: Request, res: Response) => {
 
     const ai = getGeminiClient();
     if (!ai) {
+      const spent = financialData?.monthlyStats?.totalSpent;
+      const spentStr = typeof spent === "number" && spent > 0 ? `₹${spent.toLocaleString("en-IN")}` : null;
+      const reply = spentStr
+        ? `Based on your recorded data: You have logged expenses totaling ${spentStr} this month. How can I help you manage your budgets or review your spending today?`
+        : "I am ready to help manage your finances. You can ask me to track expenses, review your budgets, or analyze spending once transactions are recorded.";
+
       return res.json({
-        reply: `Based on your recorded data: You have logged expenses totaling ₹${financialData?.monthlyStats?.totalSpent || "31,400"} this month, with Food and Transport being your highest categories. You have active budgets in place. How can I help you manage your finances today?`,
+        reply,
         suggestedActions: []
       });
     }
@@ -345,15 +351,7 @@ app.post("/api/ai/anomalies", async (req: Request, res: Response) => {
 
     if (!ai) {
       return res.json({
-        anomalies: [
-          {
-            type: "unusual_transaction",
-            severity: "low",
-            title: "Higher transport spending today",
-            message: "Your transport expenses today are 2.4× higher than your usual weekday average.",
-            transactionId: recentTransactions?.[0]?.id || ""
-          }
-        ]
+        anomalies: []
       });
     }
 
@@ -474,19 +472,16 @@ function fallbackParseExpense(text: string) {
 
 function fallbackReceiptScan() {
   return {
-    merchant: "Haldiram's Sweets & Restaurant",
+    error: "AI Receipt Scanner is offline or API key is not configured. Please enter transaction details manually.",
+    merchant: "",
     date: new Date().toISOString().split("T")[0],
-    totalAmount: 682.50,
-    subtotal: 650.00,
-    taxAmount: 32.50,
-    category: "Food",
-    paymentMethod: "UPI",
-    confidence: 0.95,
-    items: [
-      { name: "Special Thali", quantity: 1, price: 350.00 },
-      { name: "Paneer Tikka Roll", quantity: 1, price: 180.00 },
-      { name: "Gulab Jamun (2 pcs)", quantity: 1, price: 120.00 }
-    ]
+    totalAmount: 0,
+    subtotal: 0,
+    taxAmount: 0,
+    category: "Other",
+    paymentMethod: "upi",
+    confidence: 0,
+    items: []
   };
 }
 

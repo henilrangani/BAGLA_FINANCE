@@ -19,15 +19,7 @@ export default async function handler(req: any, res: any) {
 
     if (!ai) {
       return res.status(200).json({
-        anomalies: [
-          {
-            type: "unusual_transaction",
-            severity: "low",
-            title: "Higher transport spending today",
-            message: "Your transport expenses today are 2.4× higher than your usual weekday average.",
-            transactionId: recentTransactions?.[0]?.id || ""
-          }
-        ]
+        anomalies: []
       });
     }
 

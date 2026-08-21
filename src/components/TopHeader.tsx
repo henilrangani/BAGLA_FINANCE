@@ -19,7 +19,8 @@ import {
   Zap,
   Coins,
   Wifi,
-  WifiOff
+  WifiOff,
+  Database
 } from "lucide-react";
 import { ProfileType } from "../types";
 
@@ -41,6 +42,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
     setIsNightlyCashModalOpen,
     anomalies,
     toggleStealthMode,
+    toggleDemoMode,
     setCurrentTab
   } = useFinance();
 
@@ -112,6 +114,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
               <span>Live Online</span>
             </>
           )}
+        </button>
+
+        {/* Demo / Real User Sandbox Switcher */}
+        <button
+          onClick={toggleDemoMode}
+          className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${
+            settings.isDemoMode
+              ? "bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800/80 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+              : "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/80 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+          }`}
+          title={settings.isDemoMode ? "Demo Mode (Sample Data Loaded) - Click to switch to Real Private Ledger" : "Real Ledger Mode (Clean Data) - Click to load Demo Data"}
+        >
+          <Database className="w-3 h-3" />
+          <span>{settings.isDemoMode ? "Demo Mode" : "Real Ledger"}</span>
         </button>
       </div>
 

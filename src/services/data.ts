@@ -56,6 +56,7 @@ export const INITIAL_USER_SETTINGS: UserSettings = {
   dailyBudgetLimit: 2000,
   stealthMode: false,
   offlineMode: false,
+  isDemoMode: true,
   autoSyncUpiConfig: {
     gpay: true,
     phonepe: true,
@@ -1058,56 +1059,94 @@ export function calculateFinancialHealth(
   budgets: Budget[],
   recurring: RecurringExpense[]
 ): FinancialHealthScore {
+  const safeTxs = Array.isArray(transactions) ? transactions : [];
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+  const safeRecurring = Array.isArray(recurring) ? recurring : [];
+
   const currentMonth = new Date().toISOString().slice(0, 7);
-  const monthlyExpenses = transactions
-    .filter(t => t.type === "expense" && t.date.startsWith(currentMonth))
-    .reduce((sum, t) => sum + t.amount, 0);
+  const monthlyExpenses = safeTxs
+    .filter(t => t && t.type === "expense" && t.status !== "soft_deleted" && t.date && t.date.startsWith(currentMonth))
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+  if (safeTxs.length === 0 && income <= 0) {
+    return {
+      score: 0,
+      grade: "Needs Attention",
+      breakdown: {
+        budgetAdherence: 0,
+        savingsConsistency: 0,
+        recurringBurden: 0,
+        spendingStability: 0
+      },
+      insights: [
+        "Log your monthly income and expenses to unlock your personalized Financial Health Index."
+      ]
+    };
+  }
 
   // 1. Budget Adherence (25 pts)
-  let budgetScore = 20;
-  const totalBudget = budgets.reduce((acc, b) => acc + b.amount, 0);
+  let budgetScore = 0;
+  const totalBudget = safeBudgets.reduce((acc, b) => acc + (Number(b.amount) || 0), 0);
   if (totalBudget > 0) {
     const ratio = monthlyExpenses / totalBudget;
     if (ratio <= 0.8) budgetScore = 25;
     else if (ratio <= 1.0) budgetScore = 22;
     else if (ratio <= 1.15) budgetScore = 15;
-    else budgetScore = 10;
+    else budgetScore = 8;
+  } else if (monthlyExpenses > 0) {
+    budgetScore = 15; // Unbudgeted spending tracked
   }
 
   // 2. Savings Consistency (25 pts)
-  let savingsScore = 20;
+  let savingsScore = 0;
   const savingsRate = income > 0 ? (income - monthlyExpenses) / income : 0;
-  if (savingsRate >= 0.3) savingsScore = 25;
-  else if (savingsRate >= 0.2) savingsScore = 22;
-  else if (savingsRate >= 0.1) savingsScore = 17;
-  else if (savingsRate > 0) savingsScore = 12;
-  else savingsScore = 6;
+  if (income > 0) {
+    if (savingsRate >= 0.3) savingsScore = 25;
+    else if (savingsRate >= 0.2) savingsScore = 22;
+    else if (savingsRate >= 0.1) savingsScore = 17;
+    else if (savingsRate > 0) savingsScore = 12;
+    else savingsScore = 5;
+  }
 
   // 3. Recurring Expense Burden (25 pts)
-  const totalRecurring = recurring.filter(r => r.active).reduce((sum, r) => sum + r.amount, 0);
-  const recurringRatio = income > 0 ? totalRecurring / income : 0.1;
-  let recurringScore = 22;
-  if (recurringRatio < 0.1) recurringScore = 25;
-  else if (recurringRatio < 0.2) recurringScore = 20;
-  else if (recurringRatio < 0.3) recurringScore = 15;
-  else recurringScore = 10;
+  const totalRecurring = safeRecurring.filter(r => r && r.active).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const recurringRatio = income > 0 ? totalRecurring / income : 0;
+  let recurringScore = 0;
+  if (income > 0) {
+    if (recurringRatio === 0) recurringScore = 25;
+    else if (recurringRatio < 0.1) recurringScore = 24;
+    else if (recurringRatio < 0.2) recurringScore = 20;
+    else if (recurringRatio < 0.3) recurringScore = 15;
+    else recurringScore = 8;
+  }
 
   // 4. Spending Stability (25 pts)
-  let stabilityScore = 23;
+  let stabilityScore = 0;
+  if (safeTxs.length >= 10) stabilityScore = 24;
+  else if (safeTxs.length >= 5) stabilityScore = 20;
+  else if (safeTxs.length > 0) stabilityScore = 15;
 
   const totalScore = Math.min(100, Math.max(0, budgetScore + savingsScore + recurringScore + stabilityScore));
 
-  let grade: FinancialHealthScore["grade"] = "Good";
+  let grade: FinancialHealthScore["grade"] = "Needs Attention";
   if (totalScore >= 85) grade = "Excellent";
   else if (totalScore >= 70) grade = "Good";
-  else if (totalScore >= 55) grade = "Fair";
+  else if (totalScore >= 50) grade = "Fair";
   else grade = "Needs Attention";
 
-  const insights: string[] = [
-    `Your savings rate this month is ${Math.max(0, Math.round(savingsRate * 100))}% (Target: 20%+).`,
-    `Fixed recurring subscriptions account for ₹${totalRecurring.toLocaleString('en-IN')}/month (${Math.round(recurringRatio * 100)}% of income).`,
-    `You are tracking on-budget across ${budgets.length} monitored categories.`
-  ];
+  const insights: string[] = [];
+  if (income > 0) {
+    insights.push(`Your savings rate this month is ${Math.max(0, Math.round(savingsRate * 100))}% (Target: 20%+).`);
+  }
+  if (totalRecurring > 0) {
+    insights.push(`Fixed recurring subscriptions account for ₹${totalRecurring.toLocaleString('en-IN')}/month.`);
+  }
+  if (safeBudgets.length > 0) {
+    insights.push(`You are monitoring ${safeBudgets.length} budget categories.`);
+  }
+  if (insights.length === 0) {
+    insights.push("Continue recording transactions to refine your health insights.");
+  }
 
   return {
     score: totalScore,

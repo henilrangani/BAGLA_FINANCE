@@ -137,6 +137,8 @@ interface FinanceContextType {
   importStatementTransactions: (items: StatementImportPreviewItem[]) => void;
   dismissAnomaly: (id: string) => void;
   resetToSampleData: () => void;
+  loadSampleData: () => void;
+  toggleDemoMode: () => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -156,7 +158,7 @@ const STORAGE_KEYS = {
 };
 
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load from localStorage or defaults
+  // Load settings from localStorage or defaults
   const [settings, setSettingsState] = useState<UserSettings>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     return saved ? JSON.parse(saved) : INITIAL_USER_SETTINGS;
@@ -164,7 +166,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+    if (saved) return JSON.parse(saved);
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? INITIAL_TRANSACTIONS : [];
   });
 
   const [categories, setCategories] = useState<Category[]>(() => {
@@ -174,12 +179,22 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [budgets, setBudgets] = useState<Budget[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BUDGETS);
-    return saved ? JSON.parse(saved) : INITIAL_BUDGETS;
+    if (saved) return JSON.parse(saved);
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? INITIAL_BUDGETS : [];
   });
 
   const [groups, setGroups] = useState<Group[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.GROUPS);
-    const loaded: Group[] = saved ? JSON.parse(saved) : INITIAL_GROUPS;
+    let loaded: Group[] = [];
+    if (saved) {
+      loaded = JSON.parse(saved);
+    } else {
+      const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+      const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+      loaded = isDemo ? INITIAL_GROUPS : [];
+    }
     // Optimize settlements on init
     return loaded.map(g => ({
       ...g,
@@ -188,7 +203,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
-    return groups[0]?.id || "grp-goa-2026";
+    return groups[0]?.id || "";
   });
 
   const [activeGroup, setActiveGroup] = useState<Group | null>(() => {
@@ -203,32 +218,62 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [familySpace, setFamilySpace] = useState<FamilySpace>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.FAMILY);
-    return saved ? JSON.parse(saved) : INITIAL_FAMILY_SPACE;
+    if (saved) return JSON.parse(saved);
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? INITIAL_FAMILY_SPACE : {
+      id: "fam-space-empty",
+      name: "Household Space",
+      members: [],
+      sharedCategories: [],
+      monthlyBudget: 0
+    };
   });
 
   const [recurring, setRecurring] = useState<RecurringExpense[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.RECURRING);
-    return saved ? JSON.parse(saved) : INITIAL_RECURRING;
+    if (saved) return JSON.parse(saved);
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? INITIAL_RECURRING : [];
   });
 
   const [goals, setGoals] = useState<FinancialGoal[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.GOALS);
-    return saved ? JSON.parse(saved) : INITIAL_GOALS;
+    if (saved) return JSON.parse(saved);
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? INITIAL_GOALS : [];
   });
 
   const [cashWallet, setCashWallet] = useState<CashWallet>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CASH);
-    return saved ? JSON.parse(saved) : INITIAL_CASH_WALLET;
+    if (saved) return JSON.parse(saved);
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? INITIAL_CASH_WALLET : {
+      openingBalance: 0,
+      cashReceived: 0,
+      cashSpent: 0,
+      currentBalance: 0,
+      lastAdjustedDate: new Date().toISOString().split("T")[0]
+    };
   });
 
   const [connections, setConnections] = useState<FinancialConnection[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CONNECTIONS);
-    return saved ? JSON.parse(saved) : INITIAL_CONNECTIONS;
+    if (saved) return JSON.parse(saved);
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? INITIAL_CONNECTIONS : [];
   });
 
   const [anomalies, setAnomalies] = useState<AnomalyAlert[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ANOMALIES);
-    return saved ? JSON.parse(saved) : INITIAL_ANOMALIES;
+    if (saved) return JSON.parse(saved);
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? INITIAL_ANOMALIES : [];
   });
 
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -1105,19 +1150,79 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return JSON.stringify(backup, null, 2);
   };
 
-  const resetToSampleData = () => {
-    localStorage.clear();
-    setSettingsState(INITIAL_USER_SETTINGS);
+  const loadSampleData = () => {
+    setSettingsState(prev => {
+      const next = { ...INITIAL_USER_SETTINGS, isDemoMode: true };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+      return next;
+    });
     setTransactions(INITIAL_TRANSACTIONS);
     setCategories(DEFAULT_CATEGORIES);
     setBudgets(INITIAL_BUDGETS);
-    setGroups([INITIAL_GOA_GROUP]);
+    setGroups(INITIAL_GROUPS.map(g => ({ ...g, settlements: optimizeSettlements(g) })));
+    setSelectedGroupId(INITIAL_GROUPS[0]?.id || "");
     setFamilySpace(INITIAL_FAMILY_SPACE);
     setRecurring(INITIAL_RECURRING);
     setGoals(INITIAL_GOALS);
     setCashWallet(INITIAL_CASH_WALLET);
     setConnections(INITIAL_CONNECTIONS);
     setAnomalies(INITIAL_ANOMALIES);
+  };
+
+  const toggleDemoMode = () => {
+    const nextDemo = !settings.isDemoMode;
+    if (nextDemo) {
+      loadSampleData();
+    } else {
+      // Switch to real empty/clean mode
+      setSettingsState(prev => {
+        const next = {
+          ...prev,
+          name: prev.name === "Henil" ? "My Workspace" : prev.name,
+          isDemoMode: false
+        };
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+        return next;
+      });
+      // Clear storage for fresh user real data
+      localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
+      localStorage.removeItem(STORAGE_KEYS.BUDGETS);
+      localStorage.removeItem(STORAGE_KEYS.GROUPS);
+      localStorage.removeItem(STORAGE_KEYS.FAMILY);
+      localStorage.removeItem(STORAGE_KEYS.RECURRING);
+      localStorage.removeItem(STORAGE_KEYS.GOALS);
+      localStorage.removeItem(STORAGE_KEYS.CASH);
+      localStorage.removeItem(STORAGE_KEYS.CONNECTIONS);
+      localStorage.removeItem(STORAGE_KEYS.ANOMALIES);
+
+      setTransactions([]);
+      setBudgets([]);
+      setGroups([]);
+      setSelectedGroupId("");
+      setFamilySpace({
+        id: "fam-space-empty",
+        name: "Household Space",
+        members: [],
+        sharedCategories: [],
+        monthlyBudget: 0
+      });
+      setRecurring([]);
+      setGoals([]);
+      setCashWallet({
+        openingBalance: 0,
+        cashReceived: 0,
+        cashSpent: 0,
+        currentBalance: 0,
+        lastAdjustedDate: new Date().toISOString().split("T")[0]
+      });
+      setConnections([]);
+      setAnomalies([]);
+    }
+  };
+
+  const resetToSampleData = () => {
+    localStorage.clear();
+    loadSampleData();
   };
 
   return (
@@ -1191,6 +1296,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         importStatementTransactions,
         dismissAnomaly,
         resetToSampleData,
+        loadSampleData,
+        toggleDemoMode,
         connectorStatus,
         toggleDataConsent,
         deleteAccountData,

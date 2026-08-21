@@ -34,7 +34,8 @@ import {
   ShoppingBag,
   Zap,
   Check,
-  CreditCard
+  CreditCard,
+  PieChart as PieChartIcon
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -87,42 +88,45 @@ export const DashboardView: React.FC = () => {
     categoryChartData,
     recentTransactions
   } = useMemo(() => {
+    const safeTxs = Array.isArray(transactions) ? transactions : [];
+
     // Today's transactions
-    const todayTxs = transactions.filter(t => t.date === todayStr);
+    const todayTxs = safeTxs.filter(t => t && t.status !== "soft_deleted" && t.date === todayStr);
     const tExpense = todayTxs
       .filter(t => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const tIncome = todayTxs
       .filter(t => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const tBalance = tIncome - tExpense;
 
     // Monthly transactions
-    const monthTxs = transactions.filter(t => t.date.startsWith(currentMonthPrefix));
+    const monthTxs = safeTxs.filter(t => t && t.status !== "soft_deleted" && t.date && t.date.startsWith(currentMonthPrefix));
     const mExpense = monthTxs
       .filter(t => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0) || 31400;
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const mIncome = monthTxs
       .filter(t => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0) || 50000;
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-    const mSavings = mIncome - mExpense;
-    const sPct = mIncome > 0 ? ((mSavings / mIncome) * 100).toFixed(1) : "37.2";
+    const mSavings = Math.max(0, mIncome - mExpense);
+    const sPct = mIncome > 0 ? ((mSavings / mIncome) * 100).toFixed(1) : "0";
 
-    // Chart Data (Grouped by weeks)
+    // Chart Data (Grouped by weeks of current month)
     const weeks = [
-      { label: "1-7 Aug", income: 0, expense: 0 },
-      { label: "8-14 Aug", income: 0, expense: 0 },
-      { label: "15-21 Aug", income: 0, expense: 0 },
-      { label: "22-28 Aug", income: 0, expense: 0 },
-      { label: "29-31 Aug", income: 0, expense: 0 }
+      { label: "1-7", income: 0, expense: 0 },
+      { label: "8-14", income: 0, expense: 0 },
+      { label: "15-21", income: 0, expense: 0 },
+      { label: "22-28", income: 0, expense: 0 },
+      { label: "29-31", income: 0, expense: 0 }
     ];
 
     monthTxs.forEach(t => {
-      const day = parseInt(t.date.split("-")[2], 10);
+      const parts = (t.date || "").split("-");
+      const day = parseInt(parts[2] || "1", 10);
       let weekIdx = 0;
       if (day <= 7) weekIdx = 0;
       else if (day <= 14) weekIdx = 1;
@@ -131,34 +135,24 @@ export const DashboardView: React.FC = () => {
       else weekIdx = 4;
 
       if (t.type === "income") {
-        weeks[weekIdx].income += t.amount;
+        weeks[weekIdx].income += Number(t.amount) || 0;
       } else {
-        weeks[weekIdx].expense += t.amount;
+        weeks[weekIdx].expense += Number(t.amount) || 0;
       }
     });
 
-    // Provide pleasant baseline if empty
-    const bChartData = weeks.map((w, idx) => {
-      const baselines = [
-        { income: 12000, expense: 5800 },
-        { income: 10000, expense: 7200 },
-        { income: 15000, expense: 6900 },
-        { income: 8000, expense: 6100 },
-        { income: 5000, expense: 5400 }
-      ];
-      return {
-        label: w.label,
-        income: w.income > 0 ? w.income : baselines[idx].income,
-        expense: w.expense > 0 ? w.expense : baselines[idx].expense
-      };
-    });
+    const bChartData = weeks.map(w => ({
+      label: w.label,
+      income: w.income,
+      expense: w.expense
+    }));
 
     // Spending by Category Donut Data
     const categoryTotals: { [key: string]: number } = {};
     monthTxs
       .filter(t => t.type === "expense")
       .forEach(t => {
-        categoryTotals[t.categoryId] = (categoryTotals[t.categoryId] || 0) + t.amount;
+        categoryTotals[t.categoryId] = (categoryTotals[t.categoryId] || 0) + (Number(t.amount) || 0);
       });
 
     const categoryColors: { [key: string]: string } = {
@@ -183,8 +177,8 @@ export const DashboardView: React.FC = () => {
       "cat-other": "Others"
     };
 
-    let catChartData = Object.entries(categoryTotals).map(([catId, amount]) => {
-      const pct = mExpense > 0 ? parseFloat(((amount / mExpense) * 100).toFixed(1)) : 10;
+    const catChartData = Object.entries(categoryTotals).map(([catId, amount]) => {
+      const pct = mExpense > 0 ? parseFloat(((amount / mExpense) * 100).toFixed(1)) : 0;
       return {
         name: categoryNames[catId] || "Other",
         amount,
@@ -193,25 +187,13 @@ export const DashboardView: React.FC = () => {
       };
     });
 
-    if (catChartData.length === 0) {
-      catChartData = [
-        { name: "Food & Dining", amount: 6500, percentage: 20.7, color: "#3B82F6" },
-        { name: "Transport & Fuel", amount: 3200, percentage: 10.2, color: "#EC4899" },
-        { name: "Shopping", amount: 4800, percentage: 15.3, color: "#8B5CF6" },
-        { name: "Bills & Utilities", amount: 4200, percentage: 13.4, color: "#F59E0B" },
-        { name: "Education", amount: 2500, percentage: 8.0, color: "#06B6D4" },
-        { name: "Entertainment", amount: 1800, percentage: 5.7, color: "#EF4444" },
-        { name: "Others", amount: 8400, percentage: 26.7, color: "#F97316" }
-      ];
-    }
-
     // Recent 5 transactions
-    const recents = transactions.slice(0, 5);
+    const recents = safeTxs.filter(t => t && t.status !== "soft_deleted").slice(0, 5);
 
     return {
-      todayExpense: tExpense > 0 ? tExpense : 1240,
-      todayIncome: tIncome > 0 ? tIncome : 5000,
-      todayBalance: tExpense > 0 || tIncome > 0 ? tBalance : 3760,
+      todayExpense: tExpense,
+      todayIncome: tIncome,
+      todayBalance: tBalance,
       monthExpense: mExpense,
       monthIncome: mIncome,
       monthlySavings: mSavings,
@@ -637,62 +619,73 @@ export const DashboardView: React.FC = () => {
             </div>
 
             {/* Donut Chart with Center Total Label */}
-            <div className="relative h-44 w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={52}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="amount"
-                    onMouseEnter={(_, idx) => setHoveredCategory(categoryChartData[idx]?.name || null)}
-                    onMouseLeave={() => setHoveredCategory(null)}
-                  >
-                    {categoryChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(val: any, name: any) => [
-                      `₹${Number(val).toLocaleString("en-IN")}`,
-                      `${name}`
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-
-              {/* Center Metric */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-base font-black text-gray-900 dark:text-white tracking-tight">
-                  ₹{monthExpense.toLocaleString("en-IN")}
-                </span>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">
-                  {hoveredCategory || "Total"}
-                </span>
+            {categoryChartData.length === 0 ? (
+              <div className="h-44 w-full flex flex-col items-center justify-center text-center p-4">
+                <div className="w-10 h-10 rounded-2xl bg-gray-100 dark:bg-slate-800 text-gray-400 flex items-center justify-center mb-2">
+                  <PieChartIcon className="w-5 h-5" />
+                </div>
+                <p className="text-xs text-gray-500 font-medium">No expenses logged this month yet.</p>
               </div>
-            </div>
+            ) : (
+              <div className="relative h-44 w-full flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      dataKey="amount"
+                      onMouseEnter={(_, idx) => setHoveredCategory(categoryChartData[idx]?.name || null)}
+                      onMouseLeave={() => setHoveredCategory(null)}
+                    >
+                      {categoryChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(val: any, name: any) => [
+                        `₹${Number(val).toLocaleString("en-IN")}`,
+                        `${name}`
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                {/* Center Metric */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-base font-black text-gray-900 dark:text-white tracking-tight">
+                    ₹{monthExpense.toLocaleString("en-IN")}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">
+                    {hoveredCategory || "Total"}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Category Breakdown Rows */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
-              {categoryChartData.map((cat, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                    <span className="font-semibold text-gray-700 dark:text-slate-300 truncate">{cat.name}</span>
+            {categoryChartData.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
+                {categoryChartData.map((cat, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                      <span className="font-semibold text-gray-700 dark:text-slate-300 truncate">{cat.name}</span>
+                    </div>
+                    <div className="text-right font-bold text-gray-900 dark:text-white">
+                      <span>₹{cat.amount.toLocaleString("en-IN")}</span>
+                      <span className="text-gray-400 text-[10px] ml-1 font-normal">({cat.percentage}%)</span>
+                    </div>
                   </div>
-                  <div className="text-right font-bold text-gray-900 dark:text-white">
-                    <span>₹{cat.amount.toLocaleString("en-IN")}</span>
-                    <span className="text-gray-400 text-[10px] ml-1 font-normal">({cat.percentage}%)</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -714,32 +707,38 @@ export const DashboardView: React.FC = () => {
             </div>
 
             <div className="space-y-2.5">
-              {recentTransactions.map(tx => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between gap-2 p-2 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0">
-                      {tx.type === "income" ? "↓" : "↑"}
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                        {tx.merchant || tx.description}
-                      </h4>
-                      <p className="text-[10px] text-gray-400 font-medium truncate">
-                        {tx.paymentMethod?.toUpperCase()} • {tx.time || "12:00"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className={`font-black text-xs shrink-0 ${
-                    tx.type === "income" ? "text-[#059669] dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                  }`}>
-                    {tx.type === "income" ? "+" : "-"}₹{tx.amount.toLocaleString("en-IN")}
-                  </span>
+              {recentTransactions.length === 0 ? (
+                <div className="text-center py-6 text-xs text-gray-400 font-medium">
+                  No transactions recorded yet.
                 </div>
-              ))}
+              ) : (
+                recentTransactions.map(tx => (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between gap-2 p-2 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0">
+                        {tx.type === "income" ? "↓" : "↑"}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                          {tx.merchant || tx.description}
+                        </h4>
+                        <p className="text-[10px] text-gray-400 font-medium truncate">
+                          {tx.paymentMethod?.toUpperCase()} • {tx.time || "12:00"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`font-black text-xs shrink-0 ${
+                      tx.type === "income" ? "text-[#059669] dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                    }`}>
+                      {tx.type === "income" ? "+" : "-"}₹{tx.amount.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
