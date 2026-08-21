@@ -1,0 +1,6 @@
+{
+  "name": "Bagla Finance",
+  "description": "Every Rupee. Clearly Managed. Universal personal, family, and group expense management with AI receipt scanning, voice expense entry, smart settlement splitting, and financial intelligence.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

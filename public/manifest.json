@@ -1,0 +1,17 @@
+{
+  "name": "Bagla Finance - Every Rupee Managed",
+  "short_name": "Bagla Finance",
+  "description": "Zero-knowledge, offline-first personal & group expense tracker with UPI auto-sync, 1-tap cash entry, and AI intelligence.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
