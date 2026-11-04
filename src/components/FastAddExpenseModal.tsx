@@ -16,6 +16,8 @@ import {
   ArrowRight
 } from "lucide-react";
 import { PaymentMethod, TransactionType } from "../types";
+import { localDateString } from "../utils/dates";
+import { safeRupees, parseRupeeInput } from "../utils/money";
 
 export const FastAddExpenseModal: React.FC = () => {
   const {
@@ -44,7 +46,7 @@ export const FastAddExpenseModal: React.FC = () => {
   const [merchant, setMerchant] = useState("");
   const [description, setDescription] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("upi");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(localDateString());
   const [time, setTime] = useState(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
   const [isFamilyShared, setIsFamilyShared] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
@@ -78,22 +80,27 @@ export const FastAddExpenseModal: React.FC = () => {
     ) || categories[0];
 
     const result = addTransaction({
-      amount: Number(parsedPreview.amount) || 100,
+      amount: Math.abs(safeRupees(parsedPreview.amount)), // no invented default amount
       type: "expense",
       currency: settings.currency || "INR",
       merchant: parsedPreview.merchant || parsedPreview.description || "Expense",
       description: parsedPreview.description || naturalText,
       categoryId: matchedCategory.id,
-      date: parsedPreview.date || new Date().toISOString().split("T")[0],
+      date: parsedPreview.date || localDateString(),
       time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
       paymentMethod: (parsedPreview.paymentMethod as PaymentMethod) || "upi",
       source: "manual",
-      status: "verified",
-      confidence: parsedPreview.confidence || 0.9,
+      // AI-parsed entries below 80% confidence go to review instead of the ledger as verified.
+      status: (Number(parsedPreview.confidence) || 0) >= 0.8 ? "verified" : "pending_review",
+      confidence: Number(parsedPreview.confidence) || 0,
       notes: parsedPreview.notes || "",
       tags: parsedPreview.tags || ["quick-entry"]
     });
 
+    if (!result.success) {
+      setDuplicateWarning(result.error || "Please enter a valid amount before saving.");
+      return;
+    }
     if (result.duplicateWarning) {
       setDuplicateWarning(result.duplicateWarning);
     }
@@ -110,7 +117,12 @@ export const FastAddExpenseModal: React.FC = () => {
   // Handle Manual Save
   const handleManualSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const numAmount = parseFloat(amount);
+    const parsedAmount = parseRupeeInput(amount);
+    if (parsedAmount.ok === false) {
+      setDuplicateWarning(parsedAmount.error);
+      return;
+    }
+    const numAmount = parsedAmount.rupees;
     if (isNaN(numAmount) || numAmount <= 0) return;
 
     const result = addTransaction({

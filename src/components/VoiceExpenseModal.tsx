@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useFinance } from "../context/FinanceContext";
 import { Mic, MicOff, X, Sparkles, Check, RefreshCw, Volume2, AlertCircle } from "lucide-react";
 import { PaymentMethod } from "../types";
+import { localDateString } from "../utils/dates";
+import { safeRupees } from "../utils/money";
 
 export const VoiceExpenseModal: React.FC = () => {
   const {
@@ -120,23 +122,27 @@ export const VoiceExpenseModal: React.FC = () => {
       c => c.name.toLowerCase() === (extractedData.category || "").toLowerCase()
     ) || categories[0];
 
-    addTransaction({
-      amount: Number(extractedData.amount) || 100,
+    const result = addTransaction({
+      amount: Math.abs(safeRupees(extractedData.amount)), // no invented default amount
       type: "expense",
       currency: settings.currency || "INR",
       merchant: extractedData.merchant || extractedData.description || "Voice Expense",
       description: extractedData.description || transcript,
       categoryId: matchedCategory.id,
-      date: extractedData.date || new Date().toISOString().split("T")[0],
+      date: extractedData.date || localDateString(),
       time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
       paymentMethod: (extractedData.paymentMethod as PaymentMethod) || "upi",
       source: "voice",
-      status: "verified",
-      confidence: extractedData.confidence || 0.95,
+      status: (Number(extractedData.confidence) || 0) >= 0.8 ? "verified" : "pending_review",
+      confidence: Number(extractedData.confidence) || 0,
       notes: `Voice recorded: "${transcript}"`,
       tags: ["voice-entry"]
     });
 
+    if (!result.success) {
+      setErrorMessage("I couldn't find a valid amount. Please say or type the amount again.");
+      return;
+    }
     setSavedSuccess(true);
     setTimeout(() => {
       setIsVoiceModalOpen(false);

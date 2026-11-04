@@ -173,7 +173,7 @@ export const AdminDashboardView: React.FC = () => {
               <h4 className="font-bold text-white">Client-Side Zero DB Cost</h4>
             </div>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              Because user transaction ledgers live in their encrypted device sandbox, you never pay database hosting fees, cloud bandwidth charges, or storage bills.
+              Ledgers currently live only in each user's browser storage (unencrypted, single device). This avoids database costs today, but real accounts, sync and backups will need a server database.
             </p>
           </div>
         </div>

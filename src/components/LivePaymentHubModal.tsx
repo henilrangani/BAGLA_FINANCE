@@ -17,6 +17,7 @@ import {
   BellRing,
   ArrowRight
 } from "lucide-react";
+import { parseRupeeInput } from "../utils/money";
 
 export const LivePaymentHubModal: React.FC = () => {
   const {
@@ -55,7 +56,9 @@ export const LivePaymentHubModal: React.FC = () => {
 
   const handleSimulate = (e: React.FormEvent) => {
     e.preventDefault();
-    const amt = Number(testAmount);
+    const parsedTest = parseRupeeInput(String(testAmount));
+    if (parsedTest.ok === false) return;
+    const amt = parsedTest.rupees;
     if (!amt || amt <= 0) return;
     simulateIncomingPayment(testProvider, amt, testMerchant || "Online Merchant", testCategory);
     setIsLiveSyncModalOpen(false);

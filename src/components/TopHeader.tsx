@@ -101,7 +101,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
               ? "bg-slate-800 text-amber-300 border-amber-500/40 hover:bg-slate-700"
               : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
           }`}
-          title={settings.offlineMode ? "Offline Mode (Air-Gapped Local Device Vault) - Click to Switch to Online" : "Online Mode (Live Webhooks & Sync) - Click to Switch to Offline"}
+          title={settings.offlineMode ? "Offline mode: the app makes no AI or network requests. Click to go online" : "Online: AI features enabled - Click to Switch to Offline"}
         >
           {settings.offlineMode ? (
             <>
@@ -137,10 +137,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
         <button
           onClick={() => setIsLiveSyncModalOpen(true)}
           className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors shadow-xs cursor-pointer"
-          title="Live UPI & Bank Auto-Ingestion Hub"
+          title="Payment sync demo (simulated — no bank or UPI app is connected)"
         >
           <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-          <span className="hidden sm:inline">Auto-Sync</span>
+          <span className="hidden sm:inline">Sync Demo</span>
         </button>
 
         {/* 10 PM Nightly Cash Logger Button */}

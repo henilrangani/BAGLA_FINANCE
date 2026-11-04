@@ -22,6 +22,8 @@ import {
   ChevronDown
 } from "lucide-react";
 import { Transaction, PaymentMethod, TransactionSource, TransactionType } from "../types";
+import { localDateString } from "../utils/dates";
+import { parseStatementCsv } from "../utils/csv";
 
 export const TransactionsView: React.FC = () => {
   const {
@@ -45,6 +47,7 @@ export const TransactionsView: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importCsvText, setImportCsvText] = useState("");
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importSuccessCount, setImportSuccessCount] = useState<number | null>(null);
 
   // Filter Logic
@@ -84,46 +87,48 @@ export const TransactionsView: React.FC = () => {
   // Handle CSV Import Demo
   const handleImportCsv = () => {
     if (!importCsvText.trim()) return;
-    const lines = importCsvText.split("\n").filter(l => l.trim().length > 0);
+    // Quote-aware parser: handles "1,250.00", Indian dates, signed amounts and
+    // an optional Type column. Bad rows are reported, never guessed.
+    const { rows, errors } = parseStatementCsv(importCsvText);
     let addedCount = 0;
+    let flaggedCount = 0;
+    const fallbackCat = categories.find(c => c.id === "cat-other") || categories[0];
 
-    for (const line of lines) {
-      // Parse simple CSV: Date, Description/Merchant, Amount, Category, PaymentMethod
-      const parts = line.split(",").map(p => p.trim());
-      if (parts.length >= 3) {
-        const [date, merchant, amountStr, catName, method] = parts;
-        const amount = parseFloat(amountStr.replace(/[^0-9.]/g, ""));
-        if (!isNaN(amount) && amount > 0) {
-          const matchedCat = categories.find(
-            c => c.name.toLowerCase() === (catName || "").toLowerCase()
-          ) || categories[0];
-
-          addTransaction({
-            amount,
-            type: "expense",
-            currency: "INR",
-            merchant: merchant || "Imported Merchant",
-            description: merchant || "Statement Transaction",
-            categoryId: matchedCat.id,
-            date: date || new Date().toISOString().split("T")[0],
-            time: "12:00",
-            paymentMethod: (method as PaymentMethod) || "bank_transfer",
-            source: "imported",
-            status: "verified",
-            confidence: 1.0,
-            tags: ["bank-statement-import"]
-          });
-          addedCount++;
-        }
-      }
+    for (const row of rows) {
+      const matchedCat = categories.find(c => c.name.toLowerCase() === row.categoryName.toLowerCase());
+      const result = addTransaction({
+        amount: row.amount,
+        type: row.type,
+        currency: "INR",
+        merchant: row.merchant,
+        description: row.merchant,
+        categoryId: (matchedCat || fallbackCat).id,
+        date: row.date,
+        time: "12:00",
+        paymentMethod: row.paymentMethod,
+        source: "imported",
+        // Unknown category -> ask the user to review instead of silently filing it.
+        status: matchedCat ? "verified" : "pending_review",
+        confidence: matchedCat ? 1.0 : 0.5,
+        tags: ["bank-statement-import"]
+      });
+      if (result.success) addedCount++;
+      if (result.duplicateWarning) flaggedCount++;
     }
 
     setImportSuccessCount(addedCount);
-    setTimeout(() => {
-      setImportCsvText("");
-      setImportSuccessCount(null);
-      setIsImportModalOpen(false);
-    }, 1200);
+    setImportErrors([
+      ...(flaggedCount ? [`${flaggedCount} possible duplicate(s) flagged for review and excluded from totals`] : []),
+      ...errors.slice(0, 20).map(e => `Line ${e.line}: ${e.message}`),
+      ...(errors.length > 20 ? [`…and ${errors.length - 20} more problems`] : [])
+    ]);
+    if (errors.length === 0 && flaggedCount === 0) {
+      setTimeout(() => {
+        setImportCsvText("");
+        setImportSuccessCount(null);
+        setIsImportModalOpen(false);
+      }, 1200);
+    }
   };
 
   const loadSampleCsv = () => {
@@ -146,7 +151,7 @@ export const TransactionsView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Bagla_Finance_Transactions_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `Bagla_Finance_Transactions_${localDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -170,7 +175,7 @@ export const TransactionsView: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsImportModalOpen(true)}
+            onClick={() => { setImportErrors([]); setIsImportModalOpen(true); }}
             className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-800 dark:text-slate-200 border border-gray-200 dark:border-slate-800 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5 text-indigo-600" />
@@ -456,7 +461,9 @@ export const TransactionsView: React.FC = () => {
 
             <div className="p-6 space-y-4 text-xs">
               <p className="text-gray-600 dark:text-slate-300">
-                Paste raw statement lines: <code className="font-mono bg-gray-100 dark:bg-slate-800 px-1 py-0.5 rounded">Date, Merchant, Amount, Category, Method</code>
+                Paste raw statement lines: <code className="font-mono bg-gray-100 dark:bg-slate-800 px-1 py-0.5 rounded">Date, Merchant, Amount, Category, Method[, Type]</code>
+                <br />
+                Type is optional: expense / income / refund / transfer (or debit / credit). Negative amounts need a Type.
               </p>
 
               <textarea
@@ -483,6 +490,14 @@ export const TransactionsView: React.FC = () => {
                   </span>
                 )}
               </div>
+
+              {importErrors.length > 0 && (
+                <ul role="alert" className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 space-y-1 max-h-40 overflow-y-auto">
+                  {importErrors.map((msg, i) => (
+                    <li key={i}>{msg}</li>
+                  ))}
+                </ul>
+              )}
 
               <div className="flex gap-2 pt-2">
                 <button

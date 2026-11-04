@@ -38,6 +38,11 @@ import {
   PieChart as PieChartIcon
 } from "lucide-react";
 import confetti from "canvas-confetti";
+import { localDateString } from "../utils/dates";
+import { countsTowardTotals, netSpend, spendByCategory, totalIncome } from "../utils/ledger";
+import { normalizeRupees, subtractRupees, sumRupees } from "../utils/money";
+import { computeGroupNetRupees } from "../services/data";
+import type { Transaction } from "../types";
 
 export const DashboardView: React.FC = () => {
   const {
@@ -72,7 +77,7 @@ export const DashboardView: React.FC = () => {
       ? "Good afternoon"
       : "Good evening";
 
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = localDateString(now);
   const currentMonthPrefix = todayStr.substring(0, 7);
 
   // Dynamic Financial Calculations
@@ -89,71 +94,50 @@ export const DashboardView: React.FC = () => {
     recentTransactions
   } = useMemo(() => {
     const safeTxs = Array.isArray(transactions) ? transactions : [];
+    // Exact paise arithmetic; flagged duplicates and deleted items never count;
+    // refunds reduce spend; transfers are neither income nor expense.
+    const counted = safeTxs.filter(countsTowardTotals);
 
     // Today's transactions
-    const todayTxs = safeTxs.filter(t => t && t.status !== "soft_deleted" && t.date === todayStr);
-    const tExpense = todayTxs
-      .filter(t => t.type === "expense")
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-    const tIncome = todayTxs
-      .filter(t => t.type === "income")
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-    const tBalance = tIncome - tExpense;
+    const todayTxs = counted.filter(t => t.date === todayStr);
+    const tExpense = netSpend(todayTxs);
+    const tIncome = totalIncome(todayTxs);
+    const tBalance = subtractRupees(tIncome, tExpense);
 
     // Monthly transactions
-    const monthTxs = safeTxs.filter(t => t && t.status !== "soft_deleted" && t.date && t.date.startsWith(currentMonthPrefix));
-    const mExpense = monthTxs
-      .filter(t => t.type === "expense")
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const monthTxs = counted.filter(t => t.date && t.date.startsWith(currentMonthPrefix));
+    const mExpense = netSpend(monthTxs);
+    const mIncome = totalIncome(monthTxs);
 
-    const mIncome = monthTxs
-      .filter(t => t.type === "income")
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-    const mSavings = Math.max(0, mIncome - mExpense);
+    const mSavings = Math.max(0, subtractRupees(mIncome, mExpense));
     const sPct = mIncome > 0 ? ((mSavings / mIncome) * 100).toFixed(1) : "0";
 
     // Chart Data (Grouped by weeks of current month)
-    const weeks = [
-      { label: "1-7", income: 0, expense: 0 },
-      { label: "8-14", income: 0, expense: 0 },
-      { label: "15-21", income: 0, expense: 0 },
-      { label: "22-28", income: 0, expense: 0 },
-      { label: "29-31", income: 0, expense: 0 }
+    const weekBuckets = [
+      { label: "1-7", income: [] as Transaction[], spend: [] as Transaction[] },
+      { label: "8-14", income: [] as Transaction[], spend: [] as Transaction[] },
+      { label: "15-21", income: [] as Transaction[], spend: [] as Transaction[] },
+      { label: "22-28", income: [] as Transaction[], spend: [] as Transaction[] },
+      { label: "29-31", income: [] as Transaction[], spend: [] as Transaction[] }
     ];
 
     monthTxs.forEach(t => {
-      const parts = (t.date || "").split("-");
-      const day = parseInt(parts[2] || "1", 10);
-      let weekIdx = 0;
-      if (day <= 7) weekIdx = 0;
-      else if (day <= 14) weekIdx = 1;
-      else if (day <= 21) weekIdx = 2;
-      else if (day <= 28) weekIdx = 3;
-      else weekIdx = 4;
-
-      if (t.type === "income") {
-        weeks[weekIdx].income += Number(t.amount) || 0;
-      } else {
-        weeks[weekIdx].expense += Number(t.amount) || 0;
-      }
+      const day = parseInt((t.date || "").split("-")[2] || "1", 10);
+      const weekIdx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : day <= 28 ? 3 : 4;
+      if (t.type === "income") weekBuckets[weekIdx].income.push(t);
+      else if (t.type === "expense" || t.type === "refund") weekBuckets[weekIdx].spend.push(t);
     });
 
-    const bChartData = weeks.map(w => ({
+    const bChartData = weekBuckets.map(w => ({
       label: w.label,
-      income: w.income,
-      expense: w.expense
+      income: totalIncome(w.income),
+      expense: Math.max(0, netSpend(w.spend))
     }));
 
-    // Spending by Category Donut Data
-    const categoryTotals: { [key: string]: number } = {};
-    monthTxs
-      .filter(t => t.type === "expense")
-      .forEach(t => {
-        categoryTotals[t.categoryId] = (categoryTotals[t.categoryId] || 0) + (Number(t.amount) || 0);
-      });
+    // Spending by Category Donut Data (net of refunds, positive only)
+    const categoryTotals: { [key: string]: number } = Object.fromEntries(
+      Object.entries(spendByCategory(monthTxs)).filter(([, v]) => v > 0)
+    );
 
     const categoryColors: { [key: string]: string } = {
       "cat-food": "#3B82F6",
@@ -221,17 +205,16 @@ export const DashboardView: React.FC = () => {
 
   const activeGroupStats = useMemo(() => {
     if (!activeGroup) return { total: 0, perPerson: 0, youPaid: 0, net: 0 };
-    const total = activeGroup.expenses.reduce((s, e) => s + e.amount, 0);
-    const perPerson = Math.round(total / Math.max(activeGroup.members.length, 1));
+    const total = sumRupees(activeGroup.expenses.map(e => e.amount));
+    const memberCount = Math.max(activeGroup.members.length, 1);
+    // Average share, for display only (exact allocation lives in the settlement engine).
+    const perPerson = normalizeRupees(total / memberCount);
     const currentMemberId = activeGroup.members.find(m => m.isCurrentUser)?.id || activeGroup.members[0]?.id;
-    const youPaid = activeGroup.expenses
-      .filter(e => e.paidByMemberId === currentMemberId)
-      .reduce((s, e) => s + e.amount, 0);
-    const yourShare = activeGroup.expenses.reduce((s, e) => {
-      const part = e.participants.find(p => p.memberId === currentMemberId);
-      return s + (part ? part.amountOwed : 0);
-    }, 0);
-    const net = youPaid - yourShare;
+    const youPaid = sumRupees(
+      activeGroup.expenses.filter(e => e.paidByMemberId === currentMemberId).map(e => e.amount)
+    );
+    // Net position from the paise-exact engine (includes settlements already paid).
+    const net = currentMemberId ? computeGroupNetRupees(activeGroup)[currentMemberId] || 0 : 0;
     return { total, perPerson, youPaid, net };
   }, [activeGroup]);
 

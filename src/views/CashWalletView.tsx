@@ -11,6 +11,9 @@ import {
   Banknote,
   DollarSign
 } from "lucide-react";
+import { localDateString } from "../utils/dates";
+import { countsTowardTotals } from "../utils/ledger";
+import { parseRupeeInput } from "../utils/money";
 
 export const CashWalletView: React.FC = () => {
   const { cashWallet, updateCashBalance, transactions, addTransaction, settings } = useFinance();
@@ -23,11 +26,13 @@ export const CashWalletView: React.FC = () => {
   const [quickCashMerchant, setQuickCashMerchant] = useState("");
 
   // Cash transactions
-  const cashTransactions = transactions.filter(t => t.paymentMethod === "cash" && t.status !== "soft_deleted");
+  const cashTransactions = transactions.filter(t => t.paymentMethod === "cash" && countsTowardTotals(t));
 
   const handleAdjustSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newBal = parseFloat(actualBalanceInput);
+    const parsedBal = parseRupeeInput(actualBalanceInput, { allowZero: true });
+    if (parsedBal.ok === false) return;
+    const newBal = parsedBal.rupees;
     if (isNaN(newBal)) return;
 
     updateCashBalance(newBal, adjustmentReason || "Manual Physical Wallet Count");
@@ -36,7 +41,9 @@ export const CashWalletView: React.FC = () => {
 
   const handleQuickCashExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    const num = parseFloat(quickCashAmount);
+    const parsedQuick = parseRupeeInput(quickCashAmount);
+    if (parsedQuick.ok === false) return;
+    const num = parsedQuick.rupees;
     if (isNaN(num) || num <= 0) return;
 
     addTransaction({
@@ -46,7 +53,7 @@ export const CashWalletView: React.FC = () => {
       merchant: quickCashMerchant.trim() || "Cash Expense",
       description: quickCashMerchant.trim() || "Tea / Auto / Small cash",
       categoryId: "cat-food",
-      date: new Date().toISOString().split("T")[0],
+      date: localDateString(),
       time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
       paymentMethod: "cash",
       source: "manual",

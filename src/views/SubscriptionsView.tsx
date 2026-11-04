@@ -12,6 +12,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { RecurringExpense } from "../types";
+import { safeRupees, parseRupeeInput, addRupees, normalizeRupees } from "../utils/money";
 
 export const SubscriptionsView: React.FC = () => {
   const { recurring, addRecurringTransaction, deleteRecurringTransaction } = useFinance();
@@ -24,11 +25,13 @@ export const SubscriptionsView: React.FC = () => {
 
   const totalMonthlyRecurring = recurring
     .filter(r => r.status === "active")
-    .reduce((s, r) => s + (r.frequency === "yearly" ? r.amount / 12 : r.amount), 0);
+    .reduce((s, r) => addRupees(s, r.frequency === "yearly" ? normalizeRupees(safeRupees(r.amount) / 12) : r.amount), 0);
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const num = parseFloat(amount);
+    const parsedSub = parseRupeeInput(amount);
+    if (parsedSub.ok === false) return;
+    const num = parsedSub.rupees;
     if (isNaN(num) || num <= 0) return;
 
     addRecurringTransaction({

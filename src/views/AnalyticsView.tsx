@@ -12,6 +12,8 @@ import {
   Calendar,
   AlertCircle
 } from "lucide-react";
+import { countsTowardTotals, netSpend, totalIncome } from "../utils/ledger";
+import { addRupees, normalizeRupees, safeRupees, subtractRupees } from "../utils/money";
 
 export const AnalyticsView: React.FC = () => {
   const { transactions = [], categories = [], healthScore, settings } = useFinance();
@@ -63,30 +65,34 @@ export const AnalyticsView: React.FC = () => {
   };
 
   // Filter transactions by selected timeframe
-  const currentPeriodExpenses = safeTransactions.filter(
-    t => t && t.type === "expense" && t.status !== "soft_deleted" && isDateInTimeframe(t.date, timeframe, "current")
+  // Expenses + refunds (refunds net against spend); transfers excluded;
+  // flagged duplicates and deleted items never count.
+  const inPeriod = (t: any, which: "current" | "previous") =>
+    countsTowardTotals(t) && isDateInTimeframe(t.date, timeframe, which);
+  const currentPeriodSpendTxs = safeTransactions.filter(
+    t => inPeriod(t, "current") && (t.type === "expense" || t.type === "refund")
   );
-  const currentPeriodIncome = safeTransactions.filter(
-    t => t && t.type === "income" && t.status !== "soft_deleted" && isDateInTimeframe(t.date, timeframe, "current")
-  );
-
+  const currentPeriodExpenses = currentPeriodSpendTxs.filter(t => t.type === "expense");
+  const currentPeriodIncome = safeTransactions.filter(t => inPeriod(t, "current") && t.type === "income");
   const previousPeriodExpenses = safeTransactions.filter(
-    t => t && t.type === "expense" && t.status !== "soft_deleted" && isDateInTimeframe(t.date, timeframe, "previous")
+    t => inPeriod(t, "previous") && (t.type === "expense" || t.type === "refund")
   );
 
-  // Scaled monthly income based on timeframe
+  // Use recorded income when there is any; otherwise fall back to the profile's
+  // monthly income estimate. (Adding both double-counted salary entries.)
   const incomeMultiplier = timeframe === "month" ? 1 : timeframe === "quarter" ? 3 : 12;
-  const baseSettingsIncome = (Number(settings?.monthlyIncome) || 0) * incomeMultiplier;
+  const baseSettingsIncome = normalizeRupees(safeRupees(settings?.monthlyIncome) * incomeMultiplier);
+  const recordedIncome = totalIncome(currentPeriodIncome);
 
-  // Real financial aggregates for the selected timeframe
-  const totalExpenseAmount = currentPeriodExpenses.reduce((s, t) => s + (Number(t.amount) || 0), 0);
-  const totalIncomeAmount = currentPeriodIncome.reduce((s, t) => s + (Number(t.amount) || 0), 0) + baseSettingsIncome;
-  const netSavingsAmount = Math.max(0, totalIncomeAmount - totalExpenseAmount);
+  // Real financial aggregates for the selected timeframe (exact paise)
+  const totalExpenseAmount = Math.max(0, netSpend(currentPeriodSpendTxs));
+  const totalIncomeAmount = recordedIncome > 0 ? recordedIncome : baseSettingsIncome;
+  const netSavingsAmount = Math.max(0, subtractRupees(totalIncomeAmount, totalExpenseAmount));
   const savingsRate = totalIncomeAmount > 0 ? Math.round((netSavingsAmount / totalIncomeAmount) * 100) : 0;
 
   // Previous period spending comparison
   const currentPeriodSpent = totalExpenseAmount;
-  const previousPeriodSpent = previousPeriodExpenses.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+  const previousPeriodSpent = Math.max(0, netSpend(previousPeriodExpenses));
   const hasPreviousPeriodData = previousPeriodExpenses.length > 0;
 
   // Timeframe label descriptors
@@ -119,7 +125,7 @@ export const AnalyticsView: React.FC = () => {
     if (!merchantTotals[key]) {
       merchantTotals[key] = { merchant: key, amount: 0, count: 0, categoryName: cat };
     }
-    merchantTotals[key].amount += Number(t.amount) || 0;
+    merchantTotals[key].amount = addRupees(merchantTotals[key].amount, t.amount);
     merchantTotals[key].count += 1;
   }
 

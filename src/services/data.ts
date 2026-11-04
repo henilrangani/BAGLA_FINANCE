@@ -13,6 +13,8 @@ import {
   FinancialHealthScore,
   Settlement
 } from "../types";
+import { daysBetween, localDateString, localMonthPrefix } from "../utils/dates";
+import { allocatePaise, formatINR, fromPaise, safeRupees, toPaise } from "../utils/money";
 
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: "cat-food", name: "Food & Dining", icon: "Utensils", color: "#f97316", defaultType: "expense", budgetLimit: 8000 },
@@ -107,7 +109,7 @@ export const INITIAL_CASH_WALLET: CashWallet = {
   cashReceived: 1000,
   cashSpent: 2550,
   currentBalance: 3450,
-  lastAdjustedDate: new Date().toISOString().split("T")[0]
+  lastAdjustedDate: localDateString()
 };
 
 export const INITIAL_GOALS: FinancialGoal[] = [
@@ -629,7 +631,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Udupi Breakfast Corner",
     description: "Masala Dosa & Filter Coffee",
     categoryId: "cat-food",
-    date: new Date().toISOString().split("T")[0],
+    date: localDateString(),
     time: "08:15",
     paymentMethod: "upi",
     source: "notification",
@@ -649,7 +651,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "City Bus Metro feeder",
     description: "Bus ticket to tech park",
     categoryId: "cat-transport",
-    date: new Date().toISOString().split("T")[0],
+    date: localDateString(),
     time: "10:30",
     paymentMethod: "cash",
     source: "manual",
@@ -669,7 +671,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Green Earth Salad & Meal",
     description: "Healthy Thali Lunch",
     categoryId: "cat-food",
-    date: new Date().toISOString().split("T")[0],
+    date: localDateString(),
     time: "13:20",
     paymentMethod: "upi",
     source: "connected",
@@ -689,7 +691,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Chai Point",
     description: "Ginger Tea & Bun Maska",
     categoryId: "cat-food",
-    date: new Date().toISOString().split("T")[0],
+    date: localDateString(),
     time: "18:10",
     paymentMethod: "upi",
     source: "voice",
@@ -709,13 +711,13 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Amazon India",
     description: "Wireless Bluetooth Ergonomic Mouse",
     categoryId: "cat-shopping",
-    date: new Date().toISOString().split("T")[0],
+    date: localDateString(),
     time: "20:40",
     paymentMethod: "credit_card",
     source: "receipt",
     receiptData: {
       merchant: "Amazon Retail India",
-      date: new Date().toISOString().split("T")[0],
+      date: localDateString(),
       totalAmount: 799,
       taxAmount: 122,
       subtotal: 677,
@@ -897,7 +899,7 @@ export const INITIAL_ANOMALIES: AnomalyAlert[] = [
     severity: "low",
     title: "Higher transport spending today",
     message: "Your transport expenses today are 2.4× higher than your usual weekday average.",
-    date: new Date().toISOString().split("T")[0]
+    date: localDateString()
   },
   {
     id: "anom-2",
@@ -913,140 +915,153 @@ export const INITIAL_ANOMALIES: AnomalyAlert[] = [
 // Settlement Optimization Algorithm (Debt Simplification)
 // Solves N-person debt graph to minimum transfers
 // ----------------------------------------------------
+/**
+ * Net position per member in integer paise: paid minus consumed share,
+ * adjusted for settlements already paid. Positive = should receive,
+ * negative = owes. Always sums to exactly zero.
+ *
+ * Participant shares are re-allocated from each expense total (largest
+ * remainder, weighted by the stored amountOwed) so legacy data whose shares
+ * were rounded to whole rupees still balances to the paisa.
+ */
+export function computeGroupNetPaise(group: Group): Record<string, number> {
+  const net: Record<string, number> = {};
+  for (const m of group.members || []) net[m.id] = 0;
+
+  for (const exp of group.expenses || []) {
+    const totalPaise = toPaise(safeRupees(exp.amount));
+    if (totalPaise <= 0) continue;
+    net[exp.paidByMemberId] = (net[exp.paidByMemberId] || 0) + totalPaise;
+
+    const participants =
+      exp.participants && exp.participants.length > 0
+        ? exp.participants
+        : (group.members || []).map(m => ({ memberId: m.id, amountOwed: 1 }));
+    if (participants.length === 0) {
+      net[exp.paidByMemberId] -= totalPaise;
+      continue;
+    }
+    const weights = participants.map(p => Math.max(0, safeRupees(p.amountOwed)));
+    const shares = weights.some(w => w > 0)
+      ? allocatePaise(totalPaise, weights)
+      : allocatePaise(totalPaise, participants.map(() => 1));
+    participants.forEach((p, i) => {
+      net[p.memberId] = (net[p.memberId] || 0) - shares[i];
+    });
+  }
+
+  // Settlements already paid reduce what is still owed.
+  for (const s of group.settlements || []) {
+    if (s.status !== "marked_paid" && s.status !== "verified") continue;
+    const p = toPaise(safeRupees(s.amount));
+    net[s.fromMemberId] = (net[s.fromMemberId] || 0) + p;
+    net[s.toMemberId] = (net[s.toMemberId] || 0) - p;
+  }
+  return net;
+}
+
+/** Net positions in rupees (for display). */
+export function computeGroupNetRupees(group: Group): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(computeGroupNetPaise(group))) out[k] = fromPaise(v);
+  return out;
+}
+
+// ----------------------------------------------------
+// Settlement Optimization Algorithm (Debt Simplification)
+// Greedy largest-debtor / largest-creditor matching, in integer paise.
+// Returns only the outstanding *suggested* transfers.
+// ----------------------------------------------------
 export function optimizeSettlements(group: Group): Settlement[] {
   const members = group.members;
   if (!members || members.length < 2) return [];
 
-  // Calculate net balance for each person
-  // balance > 0 means person paid more than their share and should RECEIVE money
-  // balance < 0 means person paid less than their share and OWES money
-  const netBalances: Record<string, number> = {};
-  for (const m of members) {
-    netBalances[m.id] = 0;
-  }
-
-  for (const exp of group.expenses) {
-    const paidBy = exp.paidByMemberId;
-    const totalAmount = exp.amount;
-    
-    // Add to payer
-    netBalances[paidBy] = (netBalances[paidBy] || 0) + totalAmount;
-
-    // Subtract shares from participants
-    if (exp.participants && exp.participants.length > 0) {
-      for (const p of exp.participants) {
-        netBalances[p.memberId] = (netBalances[p.memberId] || 0) - p.amountOwed;
-      }
-    } else {
-      // Default equal split
-      const perPerson = totalAmount / members.length;
-      for (const m of members) {
-        netBalances[m.id] = (netBalances[m.id] || 0) - perPerson;
-      }
-    }
-  }
-
-  // Separate debtors and creditors
   interface PersonBalance {
     id: string;
-    amount: number;
+    paise: number;
   }
-
   const debtors: PersonBalance[] = [];
   const creditors: PersonBalance[] = [];
-
-  for (const [memberId, balance] of Object.entries(netBalances)) {
-    // Round to avoid floating point precision issues
-    const rounded = Math.round(balance * 100) / 100;
-    if (rounded < -0.01) {
-      debtors.push({ id: memberId, amount: -rounded });
-    } else if (rounded > 0.01) {
-      creditors.push({ id: memberId, amount: rounded });
-    }
+  for (const [memberId, balance] of Object.entries(computeGroupNetPaise(group))) {
+    if (balance < 0) debtors.push({ id: memberId, paise: -balance });
+    else if (balance > 0) creditors.push({ id: memberId, paise: balance });
   }
+  debtors.sort((a, b) => b.paise - a.paise || a.id.localeCompare(b.id));
+  creditors.sort((a, b) => b.paise - a.paise || a.id.localeCompare(b.id));
 
-  // Sort descending
-  debtors.sort((a, b) => b.amount - a.amount);
-  creditors.sort((a, b) => b.amount - a.amount);
-
-  const simplifiedTransfers: Settlement[] = [];
+  const transfers: Settlement[] = [];
   let dIdx = 0;
   let cIdx = 0;
-
   while (dIdx < debtors.length && cIdx < creditors.length) {
     const debtor = debtors[dIdx];
     const creditor = creditors[cIdx];
-
-    const transferAmount = Math.min(debtor.amount, creditor.amount);
-    if (transferAmount > 0.01) {
-      simplifiedTransfers.push({
-        id: `settle-${Date.now()}-${dIdx}-${cIdx}`,
-        groupId: group.id,
-        fromMemberId: debtor.id,
-        toMemberId: creditor.id,
-        amount: Math.round(transferAmount),
-        currency: group.currency || "INR",
-        status: "suggested"
-      });
-    }
-
-    debtor.amount -= transferAmount;
-    creditor.amount -= transferAmount;
-
-    if (debtor.amount <= 0.01) dIdx++;
-    if (creditor.amount <= 0.01) cIdx++;
+    const amount = Math.min(debtor.paise, creditor.paise);
+    transfers.push({
+      id: `settle-${group.id}-${debtor.id}-${creditor.id}-${transfers.length}`,
+      groupId: group.id,
+      fromMemberId: debtor.id,
+      toMemberId: creditor.id,
+      amount: fromPaise(amount),
+      currency: group.currency || "INR",
+      status: "suggested"
+    });
+    debtor.paise -= amount;
+    creditor.paise -= amount;
+    if (debtor.paise === 0) dIdx++;
+    if (creditor.paise === 0) cIdx++;
   }
+  return transfers;
+}
 
-  return simplifiedTransfers;
+/**
+ * Keep the history of paid settlements and replace the outstanding suggestions.
+ * (Previously every new expense wiped paid settlements, re-creating old debts.)
+ */
+export function recomputeSettlements(group: Group): Settlement[] {
+  const paid = (group.settlements || []).filter(s => s.status === "marked_paid" || s.status === "verified");
+  const suggested = optimizeSettlements({ ...group, settlements: paid }).map(s => ({ ...s, id: `${s.id}-r${paid.length}` }));
+  return [...paid, ...suggested];
 }
 
 // ----------------------------------------------------
 // Duplicate Detection Algorithm
+// Same amount (to the paisa), within ±1 calendar day, similar merchant/note.
 // ----------------------------------------------------
 export function detectDuplicateTransaction(
   newTx: Partial<Transaction>,
   existing: Transaction[]
 ): { isDuplicate: boolean; duplicateOf?: Transaction; reason?: string } {
   if (!newTx.amount) return { isDuplicate: false };
+  const newPaise = toPaise(safeRupees(newTx.amount));
+  const newDate = newTx.date || localDateString();
 
   for (const tx of existing) {
     if (tx.id === newTx.id) continue;
     if (tx.status === "soft_deleted") continue;
+    if (newTx.type && tx.type !== newTx.type) continue;
+    if (toPaise(safeRupees(tx.amount)) !== newPaise) continue;
+    if (!tx.date || daysBetween(tx.date, newDate) > 1) continue;
 
-    // Check same amount
-    const amountMatch = Math.abs(tx.amount - (newTx.amount || 0)) < 0.01;
-    if (!amountMatch) continue;
+    const m1 = (tx.merchant || "").toLowerCase().trim();
+    const m2 = (newTx.merchant || "").toLowerCase().trim();
+    const d1 = (tx.description || "").toLowerCase().trim();
+    const d2 = (newTx.description || "").toLowerCase().trim();
 
-    // Check date proximity (within same day or +/- 1 day)
-    const txDate = new Date(tx.date).getTime();
-    const newDate = new Date(newTx.date || new Date().toISOString()).getTime();
-    const daysDiff = Math.abs((txDate - newDate) / (1000 * 3600 * 24));
-
-    if (daysDiff <= 1) {
-      // Check merchant or description similarity
-      const m1 = (tx.merchant || "").toLowerCase().trim();
-      const m2 = (newTx.merchant || "").toLowerCase().trim();
-      const d1 = (tx.description || "").toLowerCase().trim();
-      const d2 = (newTx.description || "").toLowerCase().trim();
-
-      if (m1 && m2 && (m1.includes(m2) || m2.includes(m1))) {
-        return {
-          isDuplicate: true,
-          duplicateOf: tx,
-          reason: `Found matching ₹${tx.amount} transaction at "${tx.merchant}" on ${tx.date}`
-        };
-      }
-
-      if (d1 && d2 && (d1.includes(d2) || d2.includes(d1))) {
-        return {
-          isDuplicate: true,
-          duplicateOf: tx,
-          reason: `Found matching ₹${tx.amount} note "${tx.description}" on ${tx.date}`
-        };
-      }
+    if (m1 && m2 && (m1.includes(m2) || m2.includes(m1))) {
+      return {
+        isDuplicate: true,
+        duplicateOf: tx,
+        reason: `Found matching ${formatINR(tx.amount)} transaction at "${tx.merchant}" on ${tx.date}`
+      };
+    }
+    if (d1 && d2 && (d1.includes(d2) || d2.includes(d1))) {
+      return {
+        isDuplicate: true,
+        duplicateOf: tx,
+        reason: `Found matching ${formatINR(tx.amount)} note "${tx.description}" on ${tx.date}`
+      };
     }
   }
-
   return { isDuplicate: false };
 }
 
@@ -1063,7 +1078,7 @@ export function calculateFinancialHealth(
   const safeBudgets = Array.isArray(budgets) ? budgets : [];
   const safeRecurring = Array.isArray(recurring) ? recurring : [];
 
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = localMonthPrefix();
   const monthlyExpenses = safeTxs
     .filter(t => t && t.type === "expense" && t.status !== "soft_deleted" && t.date && t.date.startsWith(currentMonth))
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);

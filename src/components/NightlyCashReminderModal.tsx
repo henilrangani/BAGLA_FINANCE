@@ -16,6 +16,7 @@ import {
   ArrowRight,
   ShieldCheck
 } from "lucide-react";
+import { parseRupeeInput } from "../utils/money";
 
 export const NightlyCashReminderModal: React.FC = () => {
   const {
@@ -47,7 +48,9 @@ export const NightlyCashReminderModal: React.FC = () => {
 
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const amt = Number(customAmount);
+    const parsedCash = parseRupeeInput(customAmount);
+    if (parsedCash.ok === false) return;
+    const amt = parsedCash.rupees;
     if (!amt || amt <= 0) return;
     const desc = customDesc.trim() || "Cash Expense";
     quickLogCash(amt, desc, selectedCategory);

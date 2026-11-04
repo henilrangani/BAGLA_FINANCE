@@ -31,15 +31,21 @@ import { Lock, ShieldCheck } from "lucide-react";
 function AppLockScreen() {
   const { settings, unlockApp } = useFinance();
   const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = unlockApp(pin);
-    if (!success) {
-      setError(true);
+    setChecking(true);
+    const result = await unlockApp(pin);
+    setChecking(false);
+    if (!result.ok) {
       setPin("");
-      setTimeout(() => setError(false), 2500);
+      setError(
+        result.retryInMs
+          ? `Too many wrong attempts. Try again in ${Math.ceil(result.retryInMs / 1000)} seconds.`
+          : "Incorrect PIN"
+      );
     }
   };
 
@@ -51,29 +57,32 @@ function AppLockScreen() {
         </div>
         <div>
           <h2 className="text-xl font-black tracking-tight text-white">Bagla Security Vault</h2>
-          <p className="text-xs text-slate-400 mt-1 font-medium">Enter your 4-digit PIN to access ledger</p>
+          <p className="text-xs text-slate-400 mt-1 font-medium">Enter your PIN to open the app</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="password"
             autoFocus
-            maxLength={4}
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label="App lock PIN"
+            maxLength={6}
             value={pin}
             onChange={(e) => {
               setPin(e.target.value.replace(/\D/g, ""));
-              setError(false);
+              setError(null);
             }}
             placeholder="••••"
             className={`w-40 mx-auto px-4 py-3 rounded-2xl bg-slate-800 border text-center font-mono text-2xl font-bold tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-[#059669] ${
               error ? "border-rose-500 bg-rose-950/20 text-rose-300" : "border-slate-700"
             }`}
           />
-          {error && <p className="text-xs text-rose-400 font-semibold">Incorrect PIN (Hint: default 1234)</p>}
+          {error && <p role="alert" className="text-xs text-rose-400 font-semibold">{error}</p>}
 
           <button
             type="submit"
-            disabled={pin.length < 4}
+            disabled={pin.length < 4 || checking}
             className="w-full py-3.5 bg-[#059669] hover:bg-[#047857] disabled:opacity-50 text-white font-bold rounded-2xl text-sm transition-all shadow-lg shadow-emerald-600/25 cursor-pointer"
           >
             Unlock Ledger
@@ -82,7 +91,7 @@ function AppLockScreen() {
 
         <div className="pt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Local Device Encrypted &bull; DPDP 2023 Safe</span>
+          <span>Privacy screen only &bull; data is stored unencrypted on this device</span>
         </div>
       </div>
     </div>
@@ -99,7 +108,8 @@ function MainApp() {
   const [showLanding, setShowLanding] = useState(false);
   const [isMoreModalOpen, setIsMoreModalOpen] = useState(false);
 
-  if (settings.isAppLocked) {
+  // Only lock when a PIN actually exists (no default PIN to fall back on).
+  if (settings.isAppLocked && settings.passcodeHash) {
     return <AppLockScreen />;
   }
 

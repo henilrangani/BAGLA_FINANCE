@@ -14,6 +14,8 @@ import {
   Image as ImageIcon
 } from "lucide-react";
 import { ReceiptData, ReceiptItem } from "../types";
+import { localDateString } from "../utils/dates";
+import { addRupees, safeRupees, splitRupeesEqually, sumRupees } from "../utils/money";
 
 export const ReceiptScannerModal: React.FC = () => {
   const {
@@ -66,7 +68,7 @@ export const ReceiptScannerModal: React.FC = () => {
     if (type === "restaurant") {
       mock = {
         merchant: "Haldiram's Sweets & Restaurant",
-        date: new Date().toISOString().split("T")[0],
+        date: localDateString(),
         totalAmount: 682.50,
         subtotal: 650.00,
         taxAmount: 32.50,
@@ -80,7 +82,7 @@ export const ReceiptScannerModal: React.FC = () => {
     } else if (type === "grocery") {
       mock = {
         merchant: "Blinkit Quick Commerce",
-        date: new Date().toISOString().split("T")[0],
+        date: localDateString(),
         totalAmount: 940.00,
         subtotal: 910.00,
         taxAmount: 30.00,
@@ -95,7 +97,7 @@ export const ReceiptScannerModal: React.FC = () => {
     } else {
       mock = {
         merchant: "Indian Oil Petrol Pump",
-        date: new Date().toISOString().split("T")[0],
+        date: localDateString(),
         totalAmount: 1200.00,
         subtotal: 1016.95,
         taxAmount: 183.05,
@@ -114,8 +116,8 @@ export const ReceiptScannerModal: React.FC = () => {
     if (!extractedReceipt) return;
     const newItems = [...extractedReceipt.items];
     newItems[index] = { ...newItems[index], [field]: val };
-    const newSubtotal = newItems.reduce((s, i) => s + (Number(i.price) || 0), 0);
-    const newTotal = newSubtotal + (extractedReceipt.taxAmount || 0);
+    const newSubtotal = sumRupees(newItems.map(i => i.price));
+    const newTotal = addRupees(newSubtotal, extractedReceipt.taxAmount || 0);
 
     setExtractedReceipt({
       ...extractedReceipt,
@@ -128,8 +130,8 @@ export const ReceiptScannerModal: React.FC = () => {
   const handleDeleteItem = (index: number) => {
     if (!extractedReceipt) return;
     const newItems = extractedReceipt.items.filter((_, idx) => idx !== index);
-    const newSubtotal = newItems.reduce((s, i) => s + (Number(i.price) || 0), 0);
-    const newTotal = newSubtotal + (extractedReceipt.taxAmount || 0);
+    const newSubtotal = sumRupees(newItems.map(i => i.price));
+    const newTotal = addRupees(newSubtotal, extractedReceipt.taxAmount || 0);
 
     setExtractedReceipt({
       ...extractedReceipt,
@@ -142,17 +144,19 @@ export const ReceiptScannerModal: React.FC = () => {
   const handleAddItem = () => {
     if (!extractedReceipt) return;
     const newItems = [...extractedReceipt.items, { name: "New Item", quantity: 1, price: 100 }];
-    const newSubtotal = newItems.reduce((s, i) => s + (Number(i.price) || 0), 0);
+    const newSubtotal = sumRupees(newItems.map(i => i.price));
     setExtractedReceipt({
       ...extractedReceipt,
       items: newItems,
       subtotal: newSubtotal,
-      totalAmount: newSubtotal + (extractedReceipt.taxAmount || 0)
+      totalAmount: addRupees(newSubtotal, extractedReceipt.taxAmount || 0)
     });
   };
 
   const handleConfirmSaveReceipt = () => {
     if (!extractedReceipt) return;
+    // Never save an empty / failed scan as a transaction.
+    if (!(safeRupees(extractedReceipt.totalAmount) > 0)) return;
 
     const matchedCategory = categories.find(
       c => c.name.toLowerCase().includes("food") || c.name.toLowerCase().includes("grocery")
@@ -162,7 +166,8 @@ export const ReceiptScannerModal: React.FC = () => {
     if (selectedGroupId) {
       const group = groups.find(g => g.id === selectedGroupId);
       if (group) {
-        const perPerson = extractedReceipt.totalAmount / group.members.length;
+        // Exact split; shares always add up to the receipt total.
+        const shares = splitRupeesEqually(extractedReceipt.totalAmount, Math.max(group.members.length, 1));
         const currentMember = group.members.find(m => m.isCurrentUser) || group.members[0];
 
         addGroupExpense(selectedGroupId, {
@@ -172,9 +177,9 @@ export const ReceiptScannerModal: React.FC = () => {
           categoryId: matchedCategory.id,
           paidByMemberId: currentMember.id,
           splitType: "equal",
-          participants: group.members.map(m => ({
+          participants: group.members.map((m, i) => ({
             memberId: m.id,
-            amountOwed: Math.round(perPerson)
+            amountOwed: shares[i]
           })),
           date: extractedReceipt.date,
           time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
@@ -195,8 +200,9 @@ export const ReceiptScannerModal: React.FC = () => {
         paymentMethod: "upi",
         source: "receipt",
         receiptData: extractedReceipt,
-        status: "verified",
-        confidence: extractedReceipt.confidence || 0.95,
+        status: (extractedReceipt.confidence || 0) >= 0.8 ? "verified" : "pending_review",
+        confidence: extractedReceipt.confidence || 0,
+        // Low-confidence AI reads must be reviewed by the user.
         notes: `Extracted ${extractedReceipt.items?.length || 0} line items. GST: ₹${extractedReceipt.taxAmount || 0}`,
         tags: ["receipt-scan"]
       });
@@ -364,7 +370,7 @@ export const ReceiptScannerModal: React.FC = () => {
                       <input
                         type="number"
                         value={extractedReceipt.taxAmount || 0}
-                        onChange={e => setExtractedReceipt({ ...extractedReceipt, taxAmount: parseFloat(e.target.value) || 0 })}
+                        onChange={e => setExtractedReceipt({ ...extractedReceipt, taxAmount: safeRupees(e.target.value) })}
                         className="w-full px-3.5 py-2.5 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 text-gray-900 dark:text-white font-semibold outline-none"
                       />
                     </div>
@@ -410,7 +416,7 @@ export const ReceiptScannerModal: React.FC = () => {
                               type="number"
                               step="any"
                               value={item.price}
-                              onChange={e => handleUpdateItem(idx, "price", parseFloat(e.target.value) || 0)}
+                              onChange={e => handleUpdateItem(idx, "price", safeRupees(e.target.value))}
                               className="w-20 px-1.5 py-0.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-900 text-right font-bold"
                             />
                           </div>

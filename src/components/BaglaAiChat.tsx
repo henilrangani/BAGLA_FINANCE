@@ -14,6 +14,8 @@ import {
   PieChart,
   Users
 } from "lucide-react";
+import { localDateString } from "../utils/dates";
+import { formatINR, safeRupees } from "../utils/money";
 
 interface Message {
   id: string;
@@ -103,49 +105,54 @@ Ask me anything about where your money went, who owes you what, or simulate mont
     }
   };
 
+  // AI suggestions only take effect when the user clicks them, and never with
+  // an invented amount: a missing or invalid amount is refused.
   const handleExecuteAction = (action: any) => {
+    const amount = Math.abs(safeRupees(action?.payload?.amount));
+    const say = (content: string) =>
+      setMessages(prev => [...prev, { id: `msg-act-${Date.now()}`, role: "assistant", content }]);
+    if ((action.actionType === "create_budget" || action.actionType === "add_expense") && !(amount > 0)) {
+      say("I couldn't tell the amount for that. Please tell me the exact amount, or add it manually.");
+      return;
+    }
+    const wantedCat = String(action?.payload?.category || "").trim().toLowerCase();
+    const matchedCat =
+      (wantedCat && categories.find(c => c.name.toLowerCase() === wantedCat || c.name.toLowerCase().includes(wantedCat))) ||
+      categories.find(c => c.id === "cat-other") ||
+      categories[0];
+
     if (action.actionType === "create_budget") {
-      const matchedCat = categories.find(c => c.name.toLowerCase().includes(action.payload?.category?.toLowerCase() || "")) || categories[0];
       addBudget({
-        name: `Budget for ${action.payload?.category || "Category"}`,
+        name: `Budget for ${matchedCat.name}`,
         type: "category",
         categoryId: matchedCat.id,
-        amount: action.payload?.amount || 5000,
+        amount,
         period: "monthly",
         alertThreshold: 0.8,
-        startDate: new Date().toISOString().split("T")[0]
+        startDate: `${localDateString().slice(0, 7)}-01`
       });
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `msg-act-${Date.now()}`,
-          role: "assistant",
-          content: `✓ **Created Budget**: ₹${action.payload?.amount || 5000} monthly budget for ${action.payload?.category || "Category"} has been activated!`
-        }
-      ]);
+      say(`✓ **Created Budget**: ${formatINR(amount)} monthly budget for ${matchedCat.name}.`);
     } else if (action.actionType === "add_expense") {
-      addTransaction({
-        amount: action.payload?.amount || 500,
+      const result = addTransaction({
+        amount,
         type: "expense",
         currency: "INR",
-        merchant: action.payload?.merchant || "Expense",
-        description: action.payload?.merchant || "Added via Bagla AI",
-        categoryId: "cat-food",
-        date: new Date().toISOString().split("T")[0],
+        merchant: String(action.payload?.merchant || "Expense").slice(0, 80),
+        description: String(action.payload?.merchant || "Added via Bagla AI").slice(0, 120),
+        categoryId: matchedCat.id,
+        date: localDateString(),
         time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
         paymentMethod: "upi",
         source: "manual",
         status: "verified",
-        confidence: 1.0
+        confidence: 1.0,
+        tags: ["ai-suggested", "user-confirmed"]
       });
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `msg-act-${Date.now()}`,
-          role: "assistant",
-          content: `✓ **Recorded Expense**: ₹${action.payload?.amount || 500} recorded in your timeline.`
-        }
-      ]);
+      say(
+        result.success
+          ? `✓ **Recorded Expense**: ${formatINR(amount)} in ${matchedCat.name}.${result.duplicateWarning ? " (Flagged as a possible duplicate.)" : ""}`
+          : "That expense couldn't be saved. Please add it manually."
+      );
     }
   };
 

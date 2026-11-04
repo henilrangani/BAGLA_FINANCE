@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import {
   Transaction,
   Category,
@@ -32,11 +32,15 @@ import {
   INITIAL_FAMILY_SPACE,
   INITIAL_TRANSACTIONS,
   INITIAL_ANOMALIES,
-  optimizeSettlements,
+  recomputeSettlements,
   detectDuplicateTransaction,
   calculateFinancialHealth
 } from "../services/data";
 import confetti from "canvas-confetti";
+import { localDateString, localMonthPrefix, localTimeString } from "../utils/dates";
+import { applyCashEffect, countsTowardTotals, netSpend, normalizeTransactions, spendByCategory, withDerivedSpent } from "../utils/ledger";
+import { formatINR, normalizeRupees, safeRupees, subtractRupees } from "../utils/money";
+import { hashPin, isValidPin, lockoutDelayMs, verifyPin } from "../utils/pin";
 
 interface FinanceContextType {
   // State
@@ -80,7 +84,7 @@ interface FinanceContextType {
   setSelectedGroupId: (id: string) => void;
   
   // Transactions & Cash Log
-  addTransaction: (tx: Omit<Transaction, "id" | "userId" | "createdAt" | "updatedAt">) => { success: boolean; duplicateWarning?: string; tx: Transaction };
+  addTransaction: (tx: Omit<Transaction, "id" | "userId" | "createdAt" | "updatedAt">) => { success: boolean; duplicateWarning?: string; error?: string; tx: Transaction };
   addQuickExpense: (name: string, amount: number, categoryId: string, paymentMethod?: any) => void;
   quickLogCash: (amount: number, description: string, categoryId?: string) => void;
   simulateIncomingPayment: (provider: "GPay" | "PhonePe" | "Paytm" | "CRED" | "HDFC", amount: number, merchant: string, categoryId?: string) => void;
@@ -128,9 +132,9 @@ interface FinanceContextType {
   deleteAccountData: () => void;
   toggleStealthMode: () => void;
   formatCurrency: (amount: number, overrideStealth?: boolean) => string;
-  setAppPasscode: (pin: string) => void;
+  setAppPasscode: (pin: string) => Promise<boolean>;
   lockApp: () => void;
-  unlockApp: (pin: string) => boolean;
+  unlockApp: (pin: string) => Promise<{ ok: boolean; retryInMs?: number }>;
   exportEncryptedLedger: () => string;
 
   // Connections & Statements
@@ -157,31 +161,45 @@ const STORAGE_KEYS = {
   ANOMALIES: "bagla_anomalies_v1"
 };
 
+/** Parse stored JSON; corrupt or missing data returns null instead of crashing the app. */
+function safeParse(raw: string | null): any {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    console.warn("Ignoring corrupt locally stored data");
+    return null;
+  }
+}
+
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Load settings from localStorage or defaults
   const [settings, setSettingsState] = useState<UserSettings>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    return saved ? JSON.parse(saved) : INITIAL_USER_SETTINGS;
+    return { ...INITIAL_USER_SETTINGS, ...(safeParse(saved) || {}) };
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    if (saved) return JSON.parse(saved);
+    // normalizeTransactions repairs legacy float amounts to exact paise (idempotent).
+    { const parsed = safeParse(saved); if (Array.isArray(parsed)) return normalizeTransactions(parsed); }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
-    return isDemo ? INITIAL_TRANSACTIONS : [];
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    return isDemo ? normalizeTransactions(INITIAL_TRANSACTIONS) : [];
   });
 
   const [categories, setCategories] = useState<Category[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
-    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+    return safeParse(saved) || DEFAULT_CATEGORIES;
   });
 
-  const [budgets, setBudgets] = useState<Budget[]>(() => {
+  // Budget definitions. `spent` is never stored as truth: it is derived from
+  // transactions below, so edits/deletes can't leave it out of sync.
+  const [budgetDefs, setBudgets] = useState<Budget[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BUDGETS);
-    if (saved) return JSON.parse(saved);
+    { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
     return isDemo ? INITIAL_BUDGETS : [];
   });
 
@@ -189,16 +207,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem(STORAGE_KEYS.GROUPS);
     let loaded: Group[] = [];
     if (saved) {
-      loaded = JSON.parse(saved);
+      loaded = Array.isArray(safeParse(saved)) ? safeParse(saved) : [];
     } else {
       const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+      const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
       loaded = isDemo ? INITIAL_GROUPS : [];
     }
     // Optimize settlements on init
     return loaded.map(g => ({
       ...g,
-      settlements: optimizeSettlements(g)
+      settlements: recomputeSettlements(g)
     }));
   });
 
@@ -218,9 +236,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [familySpace, setFamilySpace] = useState<FamilySpace>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.FAMILY);
-    if (saved) return JSON.parse(saved);
+    { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
     return isDemo ? INITIAL_FAMILY_SPACE : {
       id: "fam-space-empty",
       name: "Household Space",
@@ -232,47 +250,47 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [recurring, setRecurring] = useState<RecurringExpense[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.RECURRING);
-    if (saved) return JSON.parse(saved);
+    { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
     return isDemo ? INITIAL_RECURRING : [];
   });
 
   const [goals, setGoals] = useState<FinancialGoal[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.GOALS);
-    if (saved) return JSON.parse(saved);
+    { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
     return isDemo ? INITIAL_GOALS : [];
   });
 
   const [cashWallet, setCashWallet] = useState<CashWallet>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CASH);
-    if (saved) return JSON.parse(saved);
+    { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
     return isDemo ? INITIAL_CASH_WALLET : {
       openingBalance: 0,
       cashReceived: 0,
       cashSpent: 0,
       currentBalance: 0,
-      lastAdjustedDate: new Date().toISOString().split("T")[0]
+      lastAdjustedDate: localDateString()
     };
   });
 
   const [connections, setConnections] = useState<FinancialConnection[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CONNECTIONS);
-    if (saved) return JSON.parse(saved);
+    { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
     return isDemo ? INITIAL_CONNECTIONS : [];
   });
 
   const [anomalies, setAnomalies] = useState<AnomalyAlert[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ANOMALIES);
-    if (saved) return JSON.parse(saved);
+    { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = savedSettings ? JSON.parse(savedSettings).isDemoMode : INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
     return isDemo ? INITIAL_ANOMALIES : [];
   });
 
@@ -301,7 +319,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const currentMinutes = String(now.getMinutes()).padStart(2, "0");
       const currentTimeStr = `${currentHours}:${currentMinutes}`;
       const targetTime = settings.nightlyCashReminderConfig?.time || "22:00";
-      const todayStr = now.toISOString().split("T")[0];
+      const todayStr = localDateString(now);
 
       if (
         settings.nightlyCashReminderConfig?.enabled &&
@@ -368,8 +386,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [transactions]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.BUDGETS, JSON.stringify(budgets));
-  }, [budgets]);
+    localStorage.setItem(STORAGE_KEYS.BUDGETS, JSON.stringify(budgetDefs));
+  }, [budgetDefs]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(groups));
@@ -399,6 +417,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(STORAGE_KEYS.ANOMALIES, JSON.stringify(anomalies));
   }, [anomalies]);
 
+  // Budgets with `spent` derived from the ledger for the current period.
+  const today = localDateString();
+  const budgets = useMemo(
+    () => withDerivedSpent(budgetDefs, transactions, today),
+    [budgetDefs, transactions, today]
+  );
+
   // Recalculate health score whenever key financial data changes
   const healthScore = calculateFinancialHealth(
     transactions,
@@ -413,40 +438,31 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Add Transaction
   const addTransaction = (txData: Omit<Transaction, "id" | "userId" | "createdAt" | "updatedAt">) => {
-    const dupCheck = detectDuplicateTransaction(txData, transactions);
-    
+    const amount = Math.abs(safeRupees(txData.amount));
+    const now = new Date();
     const newTx: Transaction = {
       ...txData,
-      id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      userId: "u-henil",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: dupCheck.isDuplicate ? "duplicate_flagged" : (txData.status || "verified"),
-      duplicateOfId: dupCheck.duplicateOf?.id
-    };
+      amount,
+      date: txData.date || localDateString(now),
+      time: txData.time || localTimeString(now),
+      id: `tx-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+      userId: "local-user",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    } as Transaction;
+
+    // Central guard: never record a zero, negative or non-numeric amount.
+    if (amount <= 0) {
+      return { success: false, error: "Amount must be greater than zero", tx: newTx };
+    }
+
+    const dupCheck = detectDuplicateTransaction(newTx, transactions);
+    newTx.status = dupCheck.isDuplicate ? "duplicate_flagged" : (txData.status || "verified");
+    newTx.duplicateOfId = dupCheck.duplicateOf?.id;
 
     setTransactions(prev => [newTx, ...prev]);
-
-    // If cash transaction, update cash wallet
-    if (txData.paymentMethod === "cash") {
-      setCashWallet(prev => ({
-        ...prev,
-        cashSpent: txData.type === "expense" ? prev.cashSpent + txData.amount : prev.cashSpent,
-        cashReceived: txData.type === "income" ? prev.cashReceived + txData.amount : prev.cashReceived,
-        currentBalance: txData.type === "expense" ? prev.currentBalance - txData.amount : prev.currentBalance + txData.amount,
-        lastAdjustedDate: new Date().toISOString().split("T")[0]
-      }));
-    }
-
-    // Update budget spent for category
-    if (txData.type === "expense" && txData.categoryId) {
-      setBudgets(prev => prev.map(b => {
-        if (b.categoryId === txData.categoryId || b.type === "monthly") {
-          return { ...b, spent: b.spent + txData.amount };
-        }
-        return b;
-      }));
-    }
+    // Budgets are derived from transactions; only the cash wallet is incremental.
+    setCashWallet(prev => applyCashEffect(prev, newTx, 1, localDateString()));
 
     if (dupCheck.isDuplicate) {
       return { success: true, duplicateWarning: dupCheck.reason, tx: newTx };
@@ -456,31 +472,49 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateTransaction = (id: string, updates: Partial<Transaction>) => {
-    setTransactions(prev => prev.map(t => (t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t)));
+    const old = transactions.find(t => t.id === id);
+    if (!old) return;
+    const next: Transaction = {
+      ...old,
+      ...updates,
+      amount: updates.amount !== undefined ? Math.abs(safeRupees(updates.amount)) : old.amount,
+      updatedAt: new Date().toISOString()
+    };
+    setTransactions(prev => prev.map(t => (t.id === id ? next : t)));
+    // Reverse the old cash effect and apply the new one.
+    setCashWallet(prev => applyCashEffect(applyCashEffect(prev, old, -1, localDateString()), next, 1, localDateString()));
   };
 
   const deleteTransaction = (id: string) => {
+    const old = transactions.find(t => t.id === id);
     setTransactions(prev => prev.filter(t => t.id !== id));
+    if (old) setCashWallet(prev => applyCashEffect(prev, old, -1, localDateString()));
   };
 
   // Natural language parser via backend Gemini
   const parseNaturalLanguageExpense = async (text: string) => {
     try {
+      // Offline mode is enforced: no request leaves the device.
+      if (settings.offlineMode) throw new Error("Offline mode: AI disabled");
       const response = await fetch("/api/ai/parse-expense", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text })
       });
-      return await response.json();
+      const data = await response.json();
+      // Never trust AI numbers blindly: normalise to paise, drop junk.
+      const amount = Math.abs(safeRupees(data?.amount));
+      return { ...data, amount, confidence: amount > 0 ? Number(data?.confidence) || 0 : 0 };
     } catch (err) {
       console.error("AI parse error:", err);
-      // Fallback
+      // No invented amount: the user must enter it.
       return {
-        amount: 100,
-        category: "Food & Dining",
+        amount: 0,
+        category: "Other",
         description: text,
-        confidence: 0.7,
-        paymentMethod: "upi"
+        confidence: 0,
+        paymentMethod: "upi",
+        needsReview: true
       };
     }
   };
@@ -488,74 +522,97 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Receipt Scanner via backend Gemini
   const scanReceiptImage = async (base64: string, mimeType = "image/jpeg"): Promise<ReceiptData> => {
     try {
+      if (settings.offlineMode) throw new Error("Offline mode: AI disabled");
       const response = await fetch("/api/ai/scan-receipt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: base64, mimeType })
       });
       const data = await response.json();
+      const totalAmount = Math.abs(safeRupees(data.totalAmount));
       return {
-        merchant: data.merchant || "Merchant",
-        date: data.date || new Date().toISOString().split("T")[0],
-        totalAmount: data.totalAmount || 0,
-        taxAmount: data.taxAmount || 0,
-        subtotal: data.subtotal || data.totalAmount || 0,
-        items: data.items || [],
-        confidence: data.confidence || 0.9,
+        merchant: data.merchant || "",
+        date: data.date || localDateString(),
+        totalAmount,
+        taxAmount: Math.abs(safeRupees(data.taxAmount)),
+        subtotal: Math.abs(safeRupees(data.subtotal ?? data.totalAmount)),
+        items: Array.isArray(data.items)
+          ? data.items.map((i: any) => ({ ...i, price: Math.abs(safeRupees(i?.price)) }))
+          : [],
+        confidence: totalAmount > 0 ? Number(data.confidence) || 0 : 0,
         imageUrl: base64.startsWith("data:") ? base64 : `data:${mimeType};base64,${base64}`
       };
     } catch (err) {
       console.error("Receipt scan error:", err);
+      // Previously this returned an invented ₹680 receipt. Return an empty
+      // result so the user enters the real details manually.
       return {
-        merchant: "Receipt Item",
-        date: new Date().toISOString().split("T")[0],
-        totalAmount: 680,
-        items: [{ name: "Restaurant Dining", price: 680 }],
-        confidence: 0.85
+        merchant: "",
+        date: localDateString(),
+        totalAmount: 0,
+        items: [],
+        confidence: 0
       };
     }
   };
 
   // Bagla AI Chat
   const askBaglaAi = async (message: string, history: any[] = []) => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const monthExpenses = transactions
-      .filter(t => t.type === "expense" && t.date.startsWith(currentMonth));
-    const totalSpent = monthExpenses.reduce((sum, t) => sum + t.amount, 0);
+    const currentMonth = localMonthPrefix();
+    const monthTxs = transactions.filter(t => t.date?.startsWith(currentMonth));
+    const totalSpent = netSpend(monthTxs);
+    const income = safeRupees(settings.monthlyIncome);
+    const savings = subtractRupees(income, totalSpent);
 
     const categoryBreakdown: Record<string, number> = {};
-    for (const t of monthExpenses) {
-      const cat = categories.find(c => c.id === t.categoryId)?.name || t.categoryId;
-      categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + t.amount;
+    for (const [catId, amt] of Object.entries(spendByCategory(monthTxs))) {
+      const cat = categories.find(c => c.id === catId)?.name || catId;
+      categoryBreakdown[cat] = amt;
     }
 
+    // Data minimisation: send only the fields the assistant needs. No ids,
+    // receipt images, notes, phone numbers or UPI ids leave the device.
     const payload = {
-      message,
-      conversationHistory: history,
+      message: String(message).slice(0, 2000),
+      conversationHistory: (history || []).slice(-10).map((m: any) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: String(m.content || m.text || "").slice(0, 2000)
+      })),
       financialData: {
-        userName: settings.name,
+        firstName: (settings.name || "").split(" ")[0],
         profileType: settings.profileType,
-        monthlyIncome: settings.monthlyIncome,
+        monthlyIncome: income,
         monthlyStats: {
           totalSpent,
-          savings: settings.monthlyIncome - totalSpent,
-          savingsRate: `${Math.round(((settings.monthlyIncome - totalSpent) / settings.monthlyIncome) * 100)}%`,
+          savings,
+          savingsRate: income > 0 ? `${Math.round((savings / income) * 100)}%` : "unknown (no income recorded)",
           categoryBreakdown
         },
-        recentTransactions: transactions.slice(0, 15),
-        budgets: budgets.map(b => ({ name: b.name, limit: b.amount, spent: b.spent })),
+        recentTransactions: transactions
+          .filter(countsTowardTotals)
+          .slice(0, 15)
+          .map(t => ({
+            date: t.date,
+            type: t.type,
+            amount: t.amount,
+            merchant: (t.merchant || "").slice(0, 60),
+            category: categories.find(c => c.id === t.categoryId)?.name || t.categoryId,
+            paymentMethod: t.paymentMethod
+          })),
+        budgets: budgets.map(b => ({ name: b.name, limit: b.amount, spent: b.spent, period: b.period })),
         recurring: recurring.filter(r => r.active).map(r => ({ name: r.name, amount: r.amount, renewal: r.nextRenewalDate })),
         groups: groups.map(g => ({
           name: g.name,
           budget: g.budget,
-          totalExpenses: g.expenses.reduce((s, e) => s + e.amount, 0),
-          settlements: g.settlements
+          totalExpenses: g.expenses.reduce((s, e) => s + safeRupees(e.amount), 0),
+          outstandingSettlements: g.settlements.filter(s => s.status === "suggested").length
         })),
         goals: goals.map(g => ({ title: g.title, target: g.targetAmount, current: g.currentAmount }))
       }
     };
 
     try {
+      if (settings.offlineMode) throw new Error("Offline mode: AI disabled");
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -579,7 +636,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       merchant: name,
       description: name,
       categoryId,
-      date: new Date().toISOString().split("T")[0],
+      date: localDateString(),
       time: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }),
       paymentMethod,
       source: "manual",
@@ -616,7 +673,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       budget: budget || 20000,
       currency: "INR",
       createdBy: "m-henil",
-      createdAt: new Date().toISOString().split("T")[0],
+      createdAt: localDateString(),
       inviteCode: `${name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)}-${Math.floor(1000 + Math.random() * 9000)}`,
       members: memberList,
       expenses: [],
@@ -679,7 +736,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const updatedGroup = { ...g, expenses: updatedExpenses };
         return {
           ...updatedGroup,
-          settlements: optimizeSettlements(updatedGroup)
+          settlements: recomputeSettlements(updatedGroup)
         };
       }
       return g;
@@ -687,6 +744,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addGroupExpense = (groupId: string, expenseData: Omit<GroupExpense, "id" | "groupId" | "createdAt">) => {
+    const amount = Math.abs(safeRupees(expenseData.amount));
+    if (amount <= 0) return;
+    expenseData = { ...expenseData, amount };
     const newExpense: GroupExpense = {
       ...expenseData,
       id: `ge-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -700,7 +760,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const updatedGroup = { ...g, expenses: updatedExpenses };
         return {
           ...updatedGroup,
-          settlements: optimizeSettlements(updatedGroup)
+          settlements: recomputeSettlements(updatedGroup)
         };
       }
       return g;
@@ -733,8 +793,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setGroups(prev => prev.map(g => {
       if (g.id === groupId) {
         const existingSettlement = g.settlements.find(
-          s => s.fromMemberId === fromMemberId && s.toMemberId === toMemberId && s.status !== "marked_paid"
+          s => s.fromMemberId === fromMemberId && s.toMemberId === toMemberId && s.status === "suggested"
         );
+        amount = normalizeRupees(Math.abs(safeRupees(amount)));
+        if (amount <= 0) return g;
 
         let updatedSettlements: Settlement[];
         if (existingSettlement) {
@@ -766,7 +828,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         return {
           ...g,
-          settlements: updatedSettlements
+          settlements: recomputeSettlements({ ...g, settlements: updatedSettlements })
         };
       }
       return g;
@@ -784,20 +846,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const markSettlementPaid = (groupId: string, settlementId: string, method = "upi") => {
     setGroups(prev => prev.map(g => {
       if (g.id === groupId) {
-        return {
-          ...g,
-          settlements: g.settlements.map(s => {
-            if (s.id === settlementId) {
-              return {
-                ...s,
-                status: "marked_paid" as const,
-                settledAt: new Date().toISOString(),
-                paymentMethod: method
-              };
-            }
-            return s;
-          })
-        };
+        const updated = g.settlements.map(s => {
+          if (s.id === settlementId) {
+            return {
+              ...s,
+              status: "marked_paid" as const,
+              settledAt: new Date().toISOString(),
+              paymentMethod: method
+            };
+          }
+          return s;
+        });
+        // Recompute what is still outstanding after this payment.
+        return { ...g, settlements: recomputeSettlements({ ...g, settlements: updated }) };
       }
       return g;
     }));
@@ -814,7 +875,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateGroup = (updated: Group) => {
     const withOptimized = {
       ...updated,
-      settlements: optimizeSettlements(updated)
+      settlements: recomputeSettlements(updated)
     };
     setGroups(prev => prev.map(g => (g.id === updated.id ? withOptimized : g)));
   };
@@ -870,7 +931,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const newGoal: FinancialGoal = {
       ...g,
       id: `goal-${Date.now()}`,
-      createdAt: new Date().toISOString().split("T")[0]
+      createdAt: localDateString()
     };
     setGoals(prev => [...prev, newGoal]);
   };
@@ -910,11 +971,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Cash Wallet
   const adjustCashWallet = (newBalance: number, reason: string) => {
     setCashWallet({
-      openingBalance: newBalance,
+      openingBalance: normalizeRupees(safeRupees(newBalance)),
       cashReceived: 0,
       cashSpent: 0,
-      currentBalance: newBalance,
-      lastAdjustedDate: new Date().toISOString().split("T")[0]
+      currentBalance: normalizeRupees(safeRupees(newBalance)),
+      lastAdjustedDate: localDateString()
     });
   };
 
@@ -925,11 +986,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Statement Import Ingestion
   const importStatementTransactions = (items: StatementImportPreviewItem[]) => {
-    const selected = items.filter(i => i.selected);
+    const selected = items.filter(i => i.selected && Math.abs(safeRupees(i.amount)) > 0);
     const newTxs: Transaction[] = selected.map(item => ({
       id: `tx-imp-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      userId: "u-henil",
-      amount: item.amount,
+      userId: "local-user",
+      amount: Math.abs(safeRupees(item.amount)),
       type: item.type,
       currency: "INR",
       merchant: item.merchant || "Statement Item",
@@ -955,8 +1016,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Privacy & Consent State
   const [connectorStatus, setConnectorStatus] = useState({
-    aaConsentGranted: true,
-    smsNotificationListening: true,
+    // Consent must be opt-in (DPDP). Neither integration exists yet in any case.
+    aaConsentGranted: false,
+    smsNotificationListening: false,
     biometricLocked: false
   });
 
@@ -995,22 +1057,49 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (settings.stealthMode && !overrideStealth) {
       return "••••••";
     }
-    return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
+    return formatINR(amount);
   };
 
-  const setAppPasscode = (pin: string) => {
+  // Set (or clear, with "") the app-lock PIN. Only a salted PBKDF2 hash is stored.
+  const setAppPasscode = async (pin: string): Promise<boolean> => {
+    if (pin === "") {
+      setSettingsState(prev => {
+        const { passcode: _legacy, passcodeHash: _h, ...rest } = prev;
+        const next = { ...rest, passcodeLockEnabled: false, isAppLocked: false, failedPinAttempts: 0 };
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+        return next;
+      });
+      return true;
+    }
+    if (!isValidPin(pin)) return false;
+    const passcodeHash = await hashPin(pin);
     setSettingsState(prev => {
-      const next = {
-        ...prev,
-        passcode: pin,
-        passcodeLockEnabled: Boolean(pin && pin.length >= 4)
-      };
+      const { passcode: _legacy, ...rest } = prev;
+      const next = { ...rest, passcodeHash, passcodeLockEnabled: true, failedPinAttempts: 0 };
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
       return next;
     });
+    return true;
   };
 
+  // One-time migration: hash any legacy plain-text PIN and delete it.
+  useEffect(() => {
+    const legacy = settings.passcode;
+    if (!legacy) return;
+    if (isValidPin(legacy)) {
+      void setAppPasscode(legacy);
+    } else {
+      setSettingsState(prev => {
+        const { passcode: _legacy, ...rest } = prev;
+        return { ...rest, passcodeLockEnabled: false, isAppLocked: false };
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.passcode]);
+
   const lockApp = () => {
+    // Without a PIN there is nothing to unlock with; don't trap the user.
+    if (!settings.passcodeHash) return;
     setSettingsState(prev => {
       const next = { ...prev, isAppLocked: true };
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
@@ -1018,51 +1107,47 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  const unlockApp = (pinAttempt: string) => {
-    if (!settings.passcode || pinAttempt === settings.passcode || pinAttempt === "1234") {
-      setSettingsState(prev => {
-        const next = { ...prev, isAppLocked: false };
-        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
-        return next;
-      });
-      return true;
+  // No master/default PIN. Wrong guesses trigger an increasing wait.
+  const unlockApp = async (pinAttempt: string): Promise<{ ok: boolean; retryInMs?: number }> => {
+    if (!settings.passcodeHash) {
+      setSettingsState(prev => ({ ...prev, isAppLocked: false }));
+      return { ok: true };
     }
-    return false;
+    const failures = settings.failedPinAttempts || 0;
+    const wait = lockoutDelayMs(failures) - (Date.now() - (settings.lastFailedPinAt || 0));
+    if (wait > 0) return { ok: false, retryInMs: wait };
+
+    const ok = await verifyPin(pinAttempt, settings.passcodeHash);
+    setSettingsState(prev => {
+      const next = ok
+        ? { ...prev, isAppLocked: false, failedPinAttempts: 0, lastFailedPinAt: undefined }
+        : { ...prev, failedPinAttempts: (prev.failedPinAttempts || 0) + 1, lastFailedPinAt: Date.now() };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+      return next;
+    });
+    return ok ? { ok: true } : { ok: false, retryInMs: lockoutDelayMs(failures + 1) || undefined };
   };
 
   const quickLogCash = (amount: number, description: string, categoryId = "cat-food") => {
-    const todayStr = new Date().toISOString().split("T")[0];
-    const nowTime = new Date().toTimeString().slice(0, 5);
-
-    const newTx: Transaction = {
-      id: `tx-cash-${Date.now()}`,
-      userId: "user-1",
-      amount: Math.abs(amount),
+    // Goes through addTransaction so validation, duplicate checks and the
+    // cash-wallet effect are identical to every other entry path. The wallet
+    // may go negative; clamping to 0 used to hide unrecorded cash income.
+    const result = addTransaction({
+      amount,
       type: "expense",
       currency: "INR",
       merchant: description,
       description: `Cash spend: ${description}`,
       categoryId,
-      date: todayStr,
-      time: nowTime,
+      date: localDateString(),
+      time: localTimeString(),
       paymentMethod: "cash",
       source: "manual",
       status: "verified",
       confidence: 1.0,
-      tags: ["cash-entry", "nightly-reconcile"],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setTransactions(prev => [newTx, ...prev]);
-
-    // Update cash wallet
-    setCashWallet(prev => ({
-      ...prev,
-      cashSpent: prev.cashSpent + Math.abs(amount),
-      currentBalance: Math.max(0, prev.currentBalance - Math.abs(amount)),
-      lastAdjustedDate: todayStr
-    }));
+      tags: ["cash-entry", "nightly-reconcile"]
+    });
+    if (!result.success) return;
 
     try {
       confetti({
@@ -1083,13 +1168,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     merchant: string,
     categoryId = "cat-food"
   ) => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = localDateString();
     const nowTime = new Date().toTimeString().slice(0, 5);
     const txId = `tx-autosync-${Date.now()}`;
 
     const newTx: Transaction = {
       id: txId,
-      userId: "user-1",
+      userId: "local-user",
       amount: Math.abs(amount),
       type: "expense",
       currency: "INR",
@@ -1134,9 +1219,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       app: "Bagla Finance Ledger",
       version: "2.5.0",
       timestamp: new Date().toISOString(),
-      encryption: "AES-GCM-256 (Simulated Client Vault)",
+      // Honest label: this file is NOT encrypted. Store it somewhere safe.
+      encryption: "none (plain JSON export)",
       data: {
-        settings,
+        // Never export the PIN hash or lock state.
+        settings: (({ passcode, passcodeHash, failedPinAttempts, lastFailedPinAt, isAppLocked, ...rest }) => rest)(settings),
         transactions,
         categories,
         budgets,
@@ -1159,7 +1246,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTransactions(INITIAL_TRANSACTIONS);
     setCategories(DEFAULT_CATEGORIES);
     setBudgets(INITIAL_BUDGETS);
-    setGroups(INITIAL_GROUPS.map(g => ({ ...g, settlements: optimizeSettlements(g) })));
+    setGroups(INITIAL_GROUPS.map(g => ({ ...g, settlements: recomputeSettlements(g) })));
     setSelectedGroupId(INITIAL_GROUPS[0]?.id || "");
     setFamilySpace(INITIAL_FAMILY_SPACE);
     setRecurring(INITIAL_RECURRING);
@@ -1213,7 +1300,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         cashReceived: 0,
         cashSpent: 0,
         currentBalance: 0,
-        lastAdjustedDate: new Date().toISOString().split("T")[0]
+        lastAdjustedDate: localDateString()
       });
       setConnections([]);
       setAnomalies([]);

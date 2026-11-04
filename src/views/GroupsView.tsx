@@ -25,8 +25,10 @@ import {
   ChevronDown
 } from "lucide-react";
 import { SplitType, GroupExpense, Group } from "../types";
-import { GROUP_TEMPLATES } from "../services/data";
+import { GROUP_TEMPLATES, computeGroupNetRupees } from "../services/data";
 import confetti from "canvas-confetti";
+import { localDateString } from "../utils/dates";
+import { normalizeRupees, parseRupeeInput, splitRupeesEqually, subtractRupees, sumRupees } from "../utils/money";
 
 export const GroupsView: React.FC = () => {
   const {
@@ -109,42 +111,32 @@ export const GroupsView: React.FC = () => {
       };
     }
 
-    const totalSpend = activeGroup.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    // All figures come from the paise-exact settlement engine, so every
+    // member's share adds up to the expense total and balances sum to zero.
+    const totalSpend = sumRupees(activeGroup.expenses.map(exp => exp.amount));
     const memberCount = Math.max(activeGroup.members.length, 1);
-    const perPersonSpend = Math.round(totalSpend / memberCount);
+    const perPersonSpend = normalizeRupees(totalSpend / memberCount); // display average only
 
     const currentId = currentUserMember?.id || "";
+    // Net from expenses only (paid - consumed) and outstanding net (after paid settlements).
+    const expenseNet = computeGroupNetRupees({ ...activeGroup, settlements: [] });
+    const outstandingNet = computeGroupNetRupees(activeGroup);
+    const paidBy = (memberId: string) =>
+      sumRupees(activeGroup.expenses.filter(exp => exp.paidByMemberId === memberId).map(exp => exp.amount));
 
-    // What current user paid
-    const youPaid = activeGroup.expenses
-      .filter(exp => exp.paidByMemberId === currentId)
-      .reduce((sum, exp) => sum + exp.amount, 0);
-
-    // Current user's consumed share
-    const yourShare = activeGroup.expenses.reduce((sum, exp) => {
-      const part = exp.participants.find(p => p.memberId === currentId);
-      return sum + (part ? part.amountOwed : 0);
-    }, 0);
-
-    const netBalance = youPaid - yourShare;
+    const youPaid = paidBy(currentId);
+    const yourShare = subtractRupees(youPaid, expenseNet[currentId] || 0);
+    const netBalance = outstandingNet[currentId] || 0;
 
     // Balances for all members
     const memberBalances = activeGroup.members.map(member => {
-      const paid = activeGroup.expenses
-        .filter(exp => exp.paidByMemberId === member.id)
-        .reduce((sum, exp) => sum + exp.amount, 0);
-
-      const consumed = activeGroup.expenses.reduce((sum, exp) => {
-        const part = exp.participants.find(p => p.memberId === member.id);
-        return sum + (part ? part.amountOwed : 0);
-      }, 0);
-
-      const net = paid - consumed;
+      const paid = paidBy(member.id);
+      const consumed = subtractRupees(paid, expenseNet[member.id] || 0);
       return {
         member,
         paid,
         consumed,
-        net
+        net: outstandingNet[member.id] || 0
       };
     });
 
@@ -199,18 +191,20 @@ export const GroupsView: React.FC = () => {
     e.preventDefault();
     if (!activeGroup) return;
 
-    const numAmount = parseFloat(expenseAmount);
-    if (isNaN(numAmount) || numAmount <= 0) return;
+    const parsed = parseRupeeInput(expenseAmount);
+    if (parsed.ok === false) return;
+    const numAmount = parsed.rupees;
 
     const payer = paidByMemberId || currentUserMember?.id || activeGroup.members[0].id;
     const participantsList = selectedParticipants.length > 0
       ? selectedParticipants
       : activeGroup.members.map(m => m.id);
 
-    const sharePerPerson = Math.round(numAmount / participantsList.length);
-    const participants = participantsList.map(mId => ({
+    // Exact split: e.g. ₹100 / 3 = 33.34 + 33.33 + 33.33 (previously 33 each, losing ₹1).
+    const shares = splitRupeesEqually(numAmount, participantsList.length);
+    const participants = participantsList.map((mId, i) => ({
       memberId: mId,
-      amountOwed: sharePerPerson
+      amountOwed: shares[i]
     }));
 
     addGroupExpense(activeGroup.id, {
@@ -221,7 +215,7 @@ export const GroupsView: React.FC = () => {
       paidByMemberId: payer,
       splitType,
       participants,
-      date: new Date().toISOString().split("T")[0],
+      date: localDateString(),
       time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
     });
 

@@ -12,6 +12,9 @@ import {
   Calendar,
   Sliders
 } from "lucide-react";
+import { localDateString } from "../utils/dates";
+import { countsTowardTotals, netSpend, spendByCategory } from "../utils/ledger";
+import { formatINR, normalizeRupees, safeRupees, subtractRupees } from "../utils/money";
 
 export const DailySummaryModal: React.FC = () => {
   const {
@@ -28,29 +31,63 @@ export const DailySummaryModal: React.FC = () => {
   const [scheduleTime, setScheduleTime] = useState(settings.dailySummaryConfig.time || "23:00");
   const [isEnabled, setIsEnabled] = useState(settings.dailySummaryConfig.enabled);
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayTransactions = transactions.filter(t => t.type === "expense" && t.date === todayStr);
+  const todayStr = localDateString();
+  const todayTransactions = transactions.filter(
+    t => countsTowardTotals(t) && (t.type === "expense" || t.type === "refund") && t.date === todayStr
+  );
 
   useEffect(() => {
     if (!isDailySummaryOpen) return;
     generateSummary();
   }, [isDailySummaryOpen]);
 
+  // All figures are computed locally from the ledger; AI (if available and
+  // online) only adds the wording of the insight.
+  const computeLocalSummary = () => {
+    const totalSpent = netSpend(todayTransactions);
+    const byCat = spendByCategory(todayTransactions);
+    const topCategories = Object.entries(byCat)
+      .map(([id, amount]) => ({ name: categories.find(c => c.id === id)?.name || id, amount }))
+      .filter(c => c.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    // Average over the previous 30 days (excluding today).
+    const since = localDateString(new Date(Date.now() - 30 * 86_400_000));
+    const prior = transactions.filter(t => t.date >= since && t.date < todayStr);
+    const averageDailySpend = normalizeRupees(netSpend(prior) / 30);
+    const dailyBudget = safeRupees(settings.dailyBudgetLimit);
+    return {
+      totalSpent,
+      transactionCount: todayTransactions.length,
+      topCategories,
+      averageDailySpend,
+      dailyBudget,
+      remainingDailyBudget: dailyBudget > 0 ? Math.max(0, subtractRupees(dailyBudget, totalSpent)) : null,
+      aiInsight: ""
+    };
+  };
+
   const generateSummary = async () => {
     setIsLoading(true);
+    const local = computeLocalSummary();
+    setSummaryData(local);
+    if (settings.offlineMode) {
+      setIsLoading(false);
+      return;
+    }
     try {
       const response = await fetch("/api/ai/daily-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          todayTransactions,
-          dailyBudget: settings.dailyBudgetLimit || 2000,
-          averageDailySpend: 1500,
+          // Minimised payload: amounts and category names only.
+          todayTransactions: local.topCategories.map(c => ({ category: c.name, amount: c.amount })),
+          dailyBudget: local.dailyBudget || undefined,
+          averageDailySpend: local.averageDailySpend,
           date: new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short", year: "numeric" })
         })
       });
       const data = await response.json();
-      setSummaryData(data);
+      if (typeof data?.aiInsight === "string") setSummaryData({ ...local, aiInsight: data.aiInsight.slice(0, 1000) });
     } catch (err) {
       console.error(err);
     } finally {
@@ -72,7 +109,7 @@ export const DailySummaryModal: React.FC = () => {
 
   if (!isDailySummaryOpen) return null;
 
-  const totalSpent = summaryData?.totalSpent ?? todayTransactions.reduce((s, t) => s + t.amount, 0);
+  const totalSpent = summaryData?.totalSpent ?? netSpend(todayTransactions);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
@@ -128,7 +165,7 @@ export const DailySummaryModal: React.FC = () => {
                   <div>
                     <span className="text-slate-400 block text-[10px] font-bold">Remaining Daily Budget</span>
                     <span className="font-bold text-emerald-400">
-                      ₹{Math.max(0, (settings.dailyBudgetLimit || 2000) - totalSpent).toLocaleString("en-IN")}
+                      {settings.dailyBudgetLimit > 0 ? formatINR(Math.max(0, subtractRupees(settings.dailyBudgetLimit, totalSpent))) : "No daily budget set"}
                     </span>
                   </div>
                   <div className="text-right">

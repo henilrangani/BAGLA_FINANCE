@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { Budget, FinancialGoal } from "../types";
 import confetti from "canvas-confetti";
+import { localDateString, localMonthPrefix } from "../utils/dates";
+import { countsTowardTotals, netSpend } from "../utils/ledger";
+import { normalizeRupees, parseRupeeInput } from "../utils/money";
 
 export const BudgetsGoalsView: React.FC = () => {
   const {
@@ -49,18 +52,21 @@ export const BudgetsGoalsView: React.FC = () => {
   const [goalEmoji, setGoalEmoji] = useState("🎯");
 
   // Current month spending calculation for budgets
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const monthTransactions = transactions.filter(t => t.date.startsWith(currentMonth) && t.type === "expense" && t.status !== "soft_deleted");
+  const currentMonth = localMonthPrefix();
+  const monthTransactions = transactions.filter(t => t.date?.startsWith(currentMonth) && countsTowardTotals(t) && (t.type === "expense" || t.type === "refund"));
 
   // What if calculations
   const simTargetTransactions = monthTransactions.filter(t => t.categoryId === simCategory);
-  const simSpentAmount = simTargetTransactions.reduce((s, t) => s + t.amount, 0) || 5800;
-  const potentialMonthlySavings = Math.round(simSpentAmount * (reductionPercent / 100));
-  const potentialAnnualSavings = potentialMonthlySavings * 12;
+  // Real data only (previously defaulted to an invented ₹5,800).
+  const simSpentAmount = Math.max(0, netSpend(simTargetTransactions));
+  const potentialMonthlySavings = normalizeRupees((simSpentAmount * reductionPercent) / 100);
+  const potentialAnnualSavings = normalizeRupees(potentialMonthlySavings * 12);
 
   const handleAddBudgetSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(budgetAmount);
+    const parsedBudget = parseRupeeInput(budgetAmount);
+    if (parsedBudget.ok === false) return;
+    const amount = parsedBudget.rupees;
     if (isNaN(amount) || amount <= 0) return;
 
     addBudget({
@@ -70,7 +76,8 @@ export const BudgetsGoalsView: React.FC = () => {
       amount,
       period: "monthly",
       alertThreshold: 0.8,
-      startDate: new Date().toISOString().split("T")[0]
+      // Count the whole current period, not just from the moment of creation.
+      startDate: `${localMonthPrefix()}-01`
     });
 
     setBudgetName("");
@@ -80,13 +87,15 @@ export const BudgetsGoalsView: React.FC = () => {
 
   const handleAddGoalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const target = parseFloat(goalTargetAmount);
+    const parsedTarget = parseRupeeInput(goalTargetAmount);
+    if (parsedTarget.ok === false) return;
+    const target = parsedTarget.rupees;
     if (isNaN(target) || target <= 0) return;
 
     addGoal({
       name: goalName.trim() || "Savings Goal",
       targetAmount: target,
-      currentAmount: parseFloat(goalCurrentAmount) || 0,
+      currentAmount: (() => { const p = parseRupeeInput(goalCurrentAmount || "0", { allowZero: true }); return p.ok === true ? p.rupees : 0; })(),
       currency: "INR",
       deadline: goalDeadline,
       color: "#10b981",
@@ -176,9 +185,8 @@ export const BudgetsGoalsView: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {budgets.map(b => {
               const cat = categories.find(c => c.id === b.categoryId);
-              const spent = b.categoryId
-                ? monthTransactions.filter(t => t.categoryId === b.categoryId).reduce((s, t) => s + t.amount, 0)
-                : monthTransactions.reduce((s, t) => s + t.amount, 0);
+              // Derived from the ledger for the budget's own category and period.
+              const spent = b.spent;
 
               const percent = Math.min(100, Math.round((spent / b.amount) * 100));
               const isOver = spent > b.amount;

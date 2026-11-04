@@ -21,6 +21,7 @@ import {
   Zap,
   ArrowRight
 } from "lucide-react";
+import { localDateString } from "../utils/dates";
 
 export const PrivacyCenterView: React.FC = () => {
   const {
@@ -38,7 +39,8 @@ export const PrivacyCenterView: React.FC = () => {
     loadSampleData
   } = useFinance();
 
-  const [pinInput, setPinInput] = useState(settings.passcode || "");
+  // Never pre-fill the PIN field: only a hash of the PIN is stored.
+  const [pinInput, setPinInput] = useState("");
   const [pinSavedMessage, setPinSavedMessage] = useState(false);
   const [copiedUpiUri, setCopiedUpiUri] = useState(false);
   const [sampleUpiAmount, setSampleUpiAmount] = useState(450);
@@ -46,10 +48,10 @@ export const PrivacyCenterView: React.FC = () => {
 
   const sampleUpiUri = `upi://pay?pa=${encodeURIComponent(sampleUpiVpa)}&pn=Rohit%20Sharma&am=${sampleUpiAmount}&cu=INR&tn=BaglaFinance%20DinnerSplit`;
 
-  const handleSavePin = (e: React.FormEvent) => {
+  const handleSavePin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput.length === 4) {
-      setAppPasscode(pinInput);
+    if (await setAppPasscode(pinInput)) {
+      setPinInput("");
       setPinSavedMessage(true);
       setTimeout(() => setPinSavedMessage(false), 2500);
     }
@@ -59,7 +61,7 @@ export const PrivacyCenterView: React.FC = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(exportEncryptedLedger());
     const downloadAnchor = document.createElement("a");
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `bagla_finance_encrypted_ledger_${new Date().toISOString().split("T")[0]}.json`);
+    downloadAnchor.setAttribute("download", `bagla_finance_backup_${localDateString()}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -79,15 +81,15 @@ export const PrivacyCenterView: React.FC = () => {
           <span className="text-xs font-bold uppercase tracking-widest text-[#059669] dark:text-emerald-400">
             Privacy & Trust Architecture
           </span>
-          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
-            DPDP Act 2023 & RBI AA Compliant
+          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800">
+            Early version · legal and compliance review pending
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-gray-950 dark:text-white tracking-tight">
           Privacy Shield & Security Center
         </h1>
         <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-400 font-medium mt-1 max-w-2xl leading-relaxed">
-          Bagla Finance operates on a Zero-Knowledge, Client-First model. Your banking PINs, netbanking passwords, and private messages never reach our servers.
+          Your records are stored only in this browser. Bagla Finance never asks for your UPI PIN, netbanking password, card CVV or OTP. When AI features are used (online mode), the text, receipt image or spending summary you submit is sent to our server and to Google Gemini for processing.
         </p>
       </div>
 
@@ -132,14 +134,14 @@ export const PrivacyCenterView: React.FC = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm text-gray-950 dark:text-white">
-                Offline Mode / Air-Gapped Local Vault
+                Offline Mode (no AI or network requests from the app)
               </span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                 settings.offlineMode
                   ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300"
                   : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
               }`}>
-                {settings.offlineMode ? "Offline Vault Active" : "Online Mode (Live Sync)"}
+                {settings.offlineMode ? "Offline mode on" : "Online (AI features enabled)"}
               </span>
             </div>
             <p className="text-gray-500 dark:text-slate-400 text-[11px] leading-relaxed">
@@ -204,20 +206,23 @@ export const PrivacyCenterView: React.FC = () => {
           <form onSubmit={handleSavePin} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1.5">
-                Set 4-Digit Security PIN
+                {settings.passcodeHash ? "Change app-lock PIN (4–6 digits)" : "Set app-lock PIN (4–6 digits)"}
               </label>
               <div className="flex items-center gap-3">
                 <input
                   type="password"
-                  maxLength={4}
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  aria-label="New app-lock PIN"
+                  maxLength={6}
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ""))}
-                  placeholder="e.g. 1234"
+                  placeholder="••••"
                   className="w-32 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-center font-mono text-lg font-bold tracking-widest text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <button
                   type="submit"
-                  disabled={pinInput.length !== 4}
+                  disabled={pinInput.length < 4 || pinInput.length > 6}
                   className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs transition-colors cursor-pointer"
                 >
                   Save PIN
@@ -234,13 +239,23 @@ export const PrivacyCenterView: React.FC = () => {
               <button
                 type="button"
                 onClick={lockApp}
-                className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-black text-white text-xs font-bold flex items-center gap-2 border border-slate-700 transition-colors cursor-pointer"
+                disabled={!settings.passcodeHash}
+                className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-black disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 border border-slate-700 transition-colors cursor-pointer"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Lock App Now</span>
               </button>
+              {settings.passcodeHash && (
+                <button
+                  type="button"
+                  onClick={() => setAppPasscode("")}
+                  className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                >
+                  Remove PIN
+                </button>
+              )}
               <span className="text-[11px] text-gray-400">
-                {settings.passcode ? "Protected by 4-digit PIN" : "Default demo PIN: 1234"}
+                {settings.passcodeHash ? "PIN set (stored only as a salted hash)" : "No PIN set"}
               </span>
             </div>
           </form>
@@ -248,10 +263,10 @@ export const PrivacyCenterView: React.FC = () => {
           <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 space-y-2 text-xs">
             <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Biometric & Client Sandbox Guarantee</span>
+              <span>What the app lock does — and doesn't do</span>
             </div>
             <p className="text-gray-600 dark:text-slate-300 leading-relaxed">
-              When enabled, all local encryption keys reside strictly in your device's Secure Enclave / Web Crypto API. No PIN hashes are transmitted over HTTP.
+              The PIN hides the app from people glancing at an unlocked device. Your PIN is never stored in plain text and never leaves this device. Your financial records are <strong>not encrypted</strong>: they stay in this browser's local storage, readable by anyone with access to this browser profile.
             </p>
           </div>
         </div>
@@ -389,7 +404,7 @@ export const PrivacyCenterView: React.FC = () => {
                 Account Aggregator Consent (Anumati / Sahamati AA Framework)
               </span>
               <span className="text-gray-500 dark:text-slate-400 text-[11px] font-medium leading-relaxed block">
-                Read-only encrypted statement sync. Requires user-initiated cryptographic approval for each bank.
+                Not available yet. Bank data via an RBI-licensed Account Aggregator would need your explicit consent for each bank.
               </span>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -510,7 +525,7 @@ export const PrivacyCenterView: React.FC = () => {
             className="px-5 py-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center gap-2 border border-indigo-200 dark:border-indigo-800 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>Download Encrypted Ledger Backup (.json)</span>
+            <span>Download Ledger Backup (.json, not encrypted)</span>
           </button>
 
           <button

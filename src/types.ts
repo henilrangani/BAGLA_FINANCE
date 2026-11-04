@@ -18,7 +18,13 @@ export type TransactionSource =
   | "voice" 
   | "imported";
 
-export type TransactionType = "expense" | "income";
+/**
+ * - expense / income: ordinary money out / in.
+ * - transfer: money moved between the user's own accounts. Never income or expense.
+ * - refund: money returned against an earlier expense. Reduces net spend;
+ *   should link to the original via `refundOfId`.
+ */
+export type TransactionType = "expense" | "income" | "transfer" | "refund";
 
 export interface ReceiptItem {
   name: string;
@@ -64,6 +70,8 @@ export interface Transaction {
   taxCategory?: string; // For freelancer / business mode
   projectClient?: string; // For freelancer mode
   duplicateOfId?: string;
+  refundOfId?: string; // For type "refund": id of the original expense
+  transferAccountId?: string; // For type "transfer": the other account
   createdAt: string;
   updatedAt: string;
 }
@@ -271,10 +279,14 @@ export interface UserSettings {
   dailyBudgetLimit: number;
   stealthMode?: boolean; // Masks balances with •••••• for privacy in public
   passcodeLockEnabled?: boolean;
+  /** @deprecated legacy plain-text PIN; migrated to passcodeHash on load and removed. */
   passcode?: string;
+  passcodeHash?: import("./utils/pin").PinRecord;
+  failedPinAttempts?: number;
+  lastFailedPinAt?: number;
   isAppLocked?: boolean;
   localEncryptionEnabled?: boolean;
-  offlineMode?: boolean; // When true, runs 100% air-gapped without external network calls
+  offlineMode?: boolean; // When true, the app makes no AI/API requests (enforced in FinanceContext + DailySummaryModal)
   isDemoMode?: boolean; // Explicit toggle for Demo / Sample Sandbox mode
   autoSyncUpiConfig?: AutoSyncUpiConfig;
   nightlyCashReminderConfig?: NightlyCashReminderConfig;
