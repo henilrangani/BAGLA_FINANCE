@@ -35,3 +35,24 @@ When offline mode is on, the app makes no AI or API requests. The old "air-gappe
 
 ### D10. Consent defaults off
 Account Aggregator and SMS consent now start as off (opt-in). Neither integration exists yet.
+
+## 2026-11-04: Phase 2, batch 1
+
+### D11. The Python backend moves into the GitHub repo as `backend/`
+The FastAPI foundation at `Desktop\BAGLA_FINANCE_PYTHON_READY_FIXED\...` was not under version control. It was **copied** into the repo as `backend/` (excluding `.env`, `.venv` and the duplicate `app_backup/`); the original folder was left untouched.
+**Why:** GitHub is the source of truth, and one repo keeps frontend and backend versions in step for CI and review.
+
+### D12. Ledger design: single-entry rows with direction, kind and links
+Each row is one movement on one account (`direction` + positive `amount_paise`), with `kind` for reporting. Transfers are two linked rows. This keeps reporting simple and still reconciles exactly. Full double-entry bookkeeping can be layered on later if business accounting is needed.
+
+### D13. Balances and budget/goal figures are derived in queries
+They're never stored; `GET /reports/reconciliation` recomputes and checks invariants.
+
+### D14. Tests run on SQLite by default and PostgreSQL in CI
+Docker Desktop wasn't running locally. The same suite runs on PostgreSQL when `TEST_DATABASE_URL` is set; CI does that, plus migrations up/down/up.
+
+### D15. Refresh tokens are opaque, hashed and rotated
+Access JWTs are checked against a live session row so logout is immediate. Reuse of a rotated token revokes all of the user's sessions.
+
+### D16. AI stays in the Node layer for now
+It's already hardened (Phase 1). The FastAPI backend owns the ledger; AI output only ever becomes `needs_review` suggestions.

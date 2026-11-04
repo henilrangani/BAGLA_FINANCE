@@ -2,7 +2,20 @@
 
 _Last updated: 2026-11-04 · branch `phase-1-security-money`_
 
-## Phase 1: security and money correctness. Status: done locally, not committed or deployed
+## Phase 2: backend and database. Status: batch 1 done (backend core); integration not started
+
+| Area | Status |
+|---|---|
+| Auth (register, login, refresh rotation, logout, lockout, change password) | Implemented and tested (SQLite) |
+| Ledger (accounts, transactions, transfers, refunds, reversals, void, audit, idempotency) | Implemented and tested (SQLite) |
+| Budgets, goals, reports, reconciliation, export, delete account | Implemented and tested (SQLite) |
+| Migration 0002 (data-preserving) | Implemented; SQL renders; **not yet run on live PostgreSQL** |
+| Tests on PostgreSQL | Configured in CI; not run locally |
+| Frontend ↔ backend connection | Planned (Phase 3) |
+
+Backend: 35 tests passed, ruff clean. Frontend: 71 tests, typecheck and build pass; `npm audit` 0. See `TEST_REPORT.md`.
+
+## Phase 1: security and money correctness. Status: done, commit `24540ba` (pushed to the dev branch; not deployed)
 
 | Check | Result | Command |
 |---|---|---|

@@ -1,6 +1,18 @@
 # Known Limitations
 
-_As of 2026-11-04, after Phase 1._
+_As of 2026-11-04, after Phase 2 batch 1._
+
+## Backend (new)
+- **Not connected to the React app yet.** The app still uses `localStorage` only (Phase 3).
+- **Not yet run against a live PostgreSQL locally** (Docker Desktop not running); covered by CI on push.
+- No email verification, password reset or MFA yet (needs an email or SMS provider).
+- No categories table, recurring bills, statement import batches, family groups or roles yet (Phase 2 remainder / Phase 4).
+- No PostgreSQL row-level security yet; isolation is enforced in the application and tested.
+- Rate limits are in-memory per process.
+- Reports load a period's rows into memory. That's fine at current scale; move to SQL aggregation before large datasets.
+- Single-currency per transfer; no FX.
+
+## Frontend (from Phase 1)
 
 ## Architecture
 - **Single device, single browser.** All data lives in `localStorage`, unencrypted. Clearing site data deletes it. There are no accounts, no sync and no server backup.

@@ -14,6 +14,13 @@ npm test       # Vitest unit tests
 npm run build  # production bundle
 ```
 
+## Backend (FastAPI)
+See `backend/README.md`. Quick version: `cd backend`, create `.venv`, `pip install -r requirements-dev.txt`, copy `.env.example` to `.env` (set `JWT_SECRET`), `docker compose up -d`, `alembic upgrade head`, `uvicorn app.main:app --reload --port 8000`.
+
+### Incident: suspected token theft
+Rotate `JWT_SECRET` in the host's secret store and redeploy. This invalidates every access token; refresh sessions remain, so also revoke all of them in SQL:
+`UPDATE auth_sessions SET revoked_at = now() WHERE revoked_at IS NULL;` (forces everyone to sign in again).
+
 ## Environment variables
 See `.env.example`. All of them are server-only; none use the `VITE_` prefix, so none reach the browser.
 - `GEMINI_API_KEY`: optional. Without it the AI routes return deterministic fallbacks.

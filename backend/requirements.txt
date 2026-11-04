@@ -1,0 +1,14 @@
+# Runtime (pinned; versions verified with the test suite on 2026-11-04)
+fastapi==0.162.0
+starlette==1.10.0
+uvicorn[standard]==0.54.0
+SQLAlchemy[asyncio]==2.1.8
+asyncpg==0.32.0
+psycopg[binary]==3.3.8
+alembic==1.20.1
+pydantic==2.14.2
+pydantic-settings==2.16.2
+pwdlib[argon2]==0.3.1
+PyJWT==2.15.1
+email-validator==2.3.0
+tzdata==2026.6

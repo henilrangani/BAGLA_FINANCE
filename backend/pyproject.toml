@@ -1,0 +1,22 @@
+[project]
+name = "bagla-finance-backend"
+version = "0.2.0"
+description = "Bagla Finance FastAPI backend (ledger, auth, budgets, goals, reports)"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "S", "UP", "I"]
+ignore = ["S101", "B008", "UP017"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106"]
+"migrations/*" = ["S608", "E501"]

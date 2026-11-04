@@ -1,6 +1,23 @@
 # Changelog
 
-## Unreleased (Phase 1: security and money correctness), 2026-11-04
+## Unreleased (Phase 2 batch 1: backend ledger and auth), 2026-11-04
+- Added `backend/`: the FastAPI service, copied from the local foundation and extended.
+- **Auth:** Argon2id, rotating hashed refresh tokens with reuse detection, logout/logout-all, password change, lockout, per-IP limits, timing-equalized login, strong-secret enforcement.
+- **Ledger:**
+  - accounts with derived balances
+  - transactions with kind, status, source, local date and time zone
+  - linked transfers, capped refunds, single reversals
+  - audited edits, void instead of delete, full history
+  - idempotency keys
+- **Budgets** (period, category, rollover, alerts) and **savings goals** (deposits and withdrawals), all derived.
+- **Reports:** summary (income, net spend, refunds, outflow buckets, cash vs digital, categories, days, accounts), net worth, reconciliation.
+- **Users:** profile update, full data export, self-service account deletion.
+- Migration 0002: data-preserving upgrade from 0001, with downgrade.
+- 35 backend tests; ruff with security rules; pinned requirements; non-root Dockerfile; local-only compose credentials.
+- GitHub Actions CI: frontend checks, backend on SQLite and PostgreSQL, migrations up/down/up.
+- Frontend: vitest upgraded to 4.1.12 (fixes 2 critical advisories in a dev dependency).
+
+## Phase 1 (security and money correctness), 2026-11-04, commit 24540ba
 
 ### Security
 - Removed the hardcoded `1234` master PIN. The PIN is now stored only as a salted PBKDF2-SHA256 hash, with an increasing wait after wrong attempts. Legacy plain-text PINs are migrated automatically.

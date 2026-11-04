@@ -1,0 +1,17 @@
+# Local development database only. Credentials here are for localhost use and
+# must never be reused in staging or production.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: bagla_finance
+      POSTGRES_USER: bagla
+      POSTGRES_PASSWORD: bagla_local_only
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["bagla_pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bagla -d bagla_finance"]
+      interval: 5s
+      retries: 10
+volumes:
+  bagla_pgdata:
