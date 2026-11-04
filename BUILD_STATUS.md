@@ -2,6 +2,11 @@
 
 _Last updated: 2026-11-04 · branch `phase-1-security-money`_
 
+## Overall: NOT READY (see LAUNCH_CHECKLIST.md)
+
+## Phase 2 batch 2 (2026-11-04)
+Imports, family sharing, support, feedback, plans/trials and admin are implemented and tested (SQLite). Backend 49 tests, frontend 75 tests; ruff, bandit, pip-audit and npm audit clean. Migration 0003 renders. First CI run failed (pytest import path); fixed in this batch and awaiting the next run.
+
 ## Phase 2: backend and database. Status: batch 1 done (backend core); integration not started
 
 | Area | Status |

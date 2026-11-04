@@ -26,6 +26,7 @@ def get_engine() -> AsyncEngine:
 
 async def get_db():
     get_engine()
-    assert _sessionmaker is not None
+    if _sessionmaker is None:  # pragma: no cover - defensive; get_engine() always sets it
+        raise RuntimeError("database session factory not initialised")
     async with _sessionmaker() as session:
         yield session

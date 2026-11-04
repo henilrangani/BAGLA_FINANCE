@@ -1,12 +1,15 @@
 # Known Limitations
 
-_As of 2026-11-04, after Phase 2 batch 1._
+_As of 2026-11-04, after Phase 2 batch 2._
 
 ## Backend (new)
+- Imports: PDF statements and old .xls aren't supported; transfers between your own accounts in a statement are imported as income/expense (edit them afterwards); duplicate detection matches the same date, amount and direction, so two genuinely identical spends on one day get flagged for review.
+- Family: no shared budgets/goals or server-side group settlements yet (the browser app's group split still works locally); invites have no email delivery.
+- Support, feedback and billing have APIs only; no UI and no email; no payment gateway.
 - **Not connected to the React app yet.** The app still uses `localStorage` only (Phase 3).
 - **Not yet run against a live PostgreSQL locally** (Docker Desktop not running); covered by CI on push.
 - No email verification, password reset or MFA yet (needs an email or SMS provider).
-- No categories table, recurring bills, statement import batches, family groups or roles yet (Phase 2 remainder / Phase 4).
+- No categories table, recurring bills, reminder scheduler, notifications or consent-record table yet.
 - No PostgreSQL row-level security yet; isolation is enforced in the application and tested.
 - Rate limits are in-memory per process.
 - Reports load a period's rows into memory. That's fine at current scale; move to SQL aggregation before large datasets.

@@ -21,6 +21,8 @@ class User(Base, UUIDMixin, TimestampMixin):
     bagla_id: Mapped[str] = mapped_column(String(64), index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Staff access is granted only directly in the database (never via the API).
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     # Preferences
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata")
     locale: Mapped[str] = mapped_column(String(8), default="en")

@@ -22,6 +22,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { localDateString } from "../utils/dates";
+import { buildUpiPayLink } from "../utils/upi";
 
 export const PrivacyCenterView: React.FC = () => {
   const {
@@ -46,7 +47,7 @@ export const PrivacyCenterView: React.FC = () => {
   const [sampleUpiAmount, setSampleUpiAmount] = useState(450);
   const [sampleUpiVpa, setSampleUpiVpa] = useState("rohit.sharma@okhdfcbank");
 
-  const sampleUpiUri = `upi://pay?pa=${encodeURIComponent(sampleUpiVpa)}&pn=Rohit%20Sharma&am=${sampleUpiAmount}&cu=INR&tn=BaglaFinance%20DinnerSplit`;
+  const sampleUpiUri = buildUpiPayLink({ vpa: sampleUpiVpa, name: "Rohit Sharma", amountRupees: sampleUpiAmount, note: "BaglaFinance DinnerSplit" }) || "Enter a valid UPI ID (name@bank) and amount";
 
   const handleSavePin = async (e: React.FormEvent) => {
     e.preventDefault();

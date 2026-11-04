@@ -115,6 +115,11 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
     reverses_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("transactions.id", ondelete="RESTRICT"), nullable=True
     )
+    # Private by default. Set only by the owner to share this one entry with a family.
+    shared_family_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("family_groups.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    import_batch_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
 
 
 class AuditEvent(Base, UUIDMixin):

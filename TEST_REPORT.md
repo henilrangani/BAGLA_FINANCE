@@ -40,3 +40,19 @@ Coverage of the 35 tests:
 
 ### Not covered yet
 Frontend ↔ backend integration, accessibility, responsive UI after changes, performance, backup/restore, family permissions, imports (Phase 3+).
+
+## 2026-11-04: Phase 2 batch 2
+| Check | Result |
+|---|---|
+| Frontend `tsc` / `vitest` / build | ✅ 0 errors / **75 passed** (adds 4 UPI-link tests) / ✅ |
+| `npm ci` in the repo folder | ✅ (the locked-file issue cleared) |
+| Backend `pytest` (plain `pytest`, as CI runs it) | ✅ **49 passed** (adds 8 import, 6 family/business tests) |
+| `ruff` / `bandit` / `pip-audit` | ✅ clean / 0 issues / 0 vulnerabilities |
+| Migration 0003 SQL render (up and down) | ✅ |
+| CI run for bc3e901 | ❌ backend "Tests (SQLite)" exit 4 (`ModuleNotFoundError: app`). Reproduced locally with plain `pytest`, fixed with `pythonpath = ["."]`, retested ✅. Frontend job passed |
+| PostgreSQL suite, live migrations, restore test | ⬜ not run (no PostgreSQL available) |
+
+Bugs found and fixed by the new tests:
+- XLSX "Particulars" header not recognized (the header cleanup stripped a trailing "rs")
+- invalid regex range in the date parser
+- UPI ID pattern too strict

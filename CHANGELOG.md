@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased (Phase 2 batch 2: imports, family, support, billing), 2026-11-04
+- **Statement imports:** CSV + XLSX (defusedxml-protected), Indian bank header detection, Debit/Credit, Dr/Cr and signed amounts, Indian date formats, keyword categories, duplicate detection against the ledger, preview → commit, idempotent re-import.
+- **Family:** groups, roles (admin/adult/child/viewer), single-use invites, explicit per-entry sharing, removal revokes sharing, last-admin protection.
+- **Support** tickets with references and automatic priority; **feedback** capture.
+- **Bagla plans:** 7-day trial, cancel keeps access to the end of the period, resume, billing history, server-side entitlement; no prices invented, no gateway.
+- **Staff admin:** overview counts, tickets, feedback, plans; no access to user transactions.
+- **Security:** fixed UPI intent parameter injection (`src/utils/upi.ts`); `pytest` 9.0.3; bandit finding fixed; family data loss on account deletion prevented.
+- **CI:** fixed backend import path; actions updated for Node 24.
+- Migration 0003 (additive). Backend tests 35 → 49; frontend 71 → 75.
+- **Docs:** SECURITY_AUDIT, PRIVACY_COMPLIANCE_READINESS, COST_ANALYSIS, DISASTER_RECOVERY, CUSTOMER_SUPPORT_GUIDE, LAUNCH_CHECKLIST, USER_TESTING_GUIDE.
+
 ## Unreleased (Phase 2 batch 1: backend ledger and auth), 2026-11-04
 - Added `backend/`: the FastAPI service, copied from the local foundation and extended.
 - **Auth:** Argon2id, rotating hashed refresh tokens with reuse detection, logout/logout-all, password change, lockout, per-IP limits, timing-equalized login, strong-secret enforcement.

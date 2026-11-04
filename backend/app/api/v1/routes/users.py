@@ -10,12 +10,18 @@ from app.core.security import verify_password
 from app.models import (
     AuditEvent,
     AuthSession,
+    BillingEvent,
     Budget,
+    FamilyMember,
     FinancialAccount,
     GoalContribution,
+    ImportBatch,
+    ImportRow,
     SavingsGoal,
+    SupportTicket,
     Transaction,
     User,
+    UserSubscription,
 )
 from app.schemas.user import DeleteAccountRequest, UserResponse, UserUpdate
 from app.services.ledger import _jsonable, snapshot
@@ -78,8 +84,20 @@ async def delete_my_account(payload: DeleteAccountRequest, user: User = Depends(
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is incorrect")
     uid = user.id
+    # Families keep working for everyone else: if this user is a family's only
+    # admin, the longest-standing other member becomes admin.
+    for m in list(await db.scalars(select(FamilyMember).where(
+            FamilyMember.user_id == uid, FamilyMember.status == "active", FamilyMember.role == "admin"))):
+        others = list(await db.scalars(select(FamilyMember).where(
+            FamilyMember.family_id == m.family_id, FamilyMember.status == "active", FamilyMember.user_id != uid)
+            .order_by(FamilyMember.created_at)))
+        if others and not any(o.role == "admin" for o in others):
+            others[0].role = "admin"
+    batch_ids = select(ImportBatch.id).where(ImportBatch.user_id == uid)
+    await db.execute(delete(ImportRow).where(ImportRow.batch_id.in_(batch_ids)))
     # Explicit order (children first) so it works without relying on DB cascades.
-    for model in (GoalContribution, SavingsGoal, Budget, AuditEvent, AuthSession):
+    for model in (GoalContribution, SavingsGoal, Budget, AuditEvent, AuthSession, ImportBatch, FamilyMember,
+                  SupportTicket, UserSubscription, BillingEvent):
         await db.execute(delete(model).where(model.user_id == uid))
     # Transactions reference each other (refunds/reversals); clear links before deleting.
     await db.execute(Transaction.__table__.update().where(Transaction.user_id == uid)

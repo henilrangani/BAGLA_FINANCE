@@ -54,5 +54,14 @@ Docker Desktop wasn't running locally. The same suite runs on PostgreSQL when `T
 ### D15. Refresh tokens are opaque, hashed and rotated
 Access JWTs are checked against a live session row so logout is immediate. Reuse of a rotated token revokes all of the user's sessions.
 
+### D17. Imports never guess
+Preview first; per-row errors; deterministic idempotency keys make re-imports harmless. Single signed-amount files need an explicit sign convention.
+
+### D18. Family sharing is opt-in per entry
+No "share everything" switch. Removal un-shares immediately. Account deletion promotes another admin instead of deleting the family.
+
+### D19. Admin is a database-only flag and sees aggregates, not ledgers
+Admin routes return 404 to non-staff.
+
 ### D16. AI stays in the Node layer for now
 It's already hardened (Phase 1). The FastAPI backend owns the ledger; AI output only ever becomes `needs_review` suggestions.

@@ -46,3 +46,23 @@ Responses include the derived `balance_paise` and `pending_paise`.
 - 413: body over 1 MB
 - 422: validation
 - 429: rate limit or lockout
+
+## Statement imports (Phase 2 batch 2)
+- `POST /imports/preview`: `{account_id, filename, content_base64, sign_convention?}`. CSV or XLSX, ≤ 700 KB, ≤ 5,000 rows. Detects the header row (Date / Narration / Debit / Credit / Amount / Dr-Cr) and returns rows with errors, categories and `duplicate_of_id`. **Nothing is posted.**
+- `GET /imports/{id}` · `POST /imports/{id}/commit` `{exclude_row_numbers?, include_duplicate_row_numbers?}` (safe to retry; re-uploading the same statement never re-posts) · `POST /imports/{id}/cancel`.
+
+## Family
+- `POST /families` (you become admin) · `GET /families` · `GET /families/{id}` (names and roles only).
+- `POST /families/{id}/invites` (admin only) → one-time token, valid 7 days; no email is sent. `POST /families/invites/accept {token}`.
+- `PATCH /families/{id}/members/{member_id} {role}` (admin) · `DELETE /families/{id}/members/{member_id}` (admin, or yourself). The last admin can't leave or be demoted.
+- `POST /families/share/{tx_id} {family_id | null}`: owner only; viewers can't share.
+- `GET /families/{id}/transactions`: shared entries from active members only, without account ids or notes.
+
+## Support & feedback
+`POST/GET /support/tickets` (reference `BF-XXXXXX`, priority set automatically, no email sent) · `POST /feedback`.
+
+## Billing (Bagla's own plans; no payment gateway connected)
+`GET /billing/plans` (`purchasable: false`) · `GET /billing/me` (server-decided access) · `POST /billing/trial {plan_code}` (one per account) · `POST /billing/cancel` (renewal stops; access continues until the trial or period end) · `POST /billing/resume` · `GET /billing/history`.
+
+## Admin (staff only; `users.is_admin` set in the database; others get 404)
+`GET /admin/overview` (counts only) · `GET/PATCH /admin/tickets` · `GET /admin/feedback` · `PUT /admin/plans` (price optional; never invented).

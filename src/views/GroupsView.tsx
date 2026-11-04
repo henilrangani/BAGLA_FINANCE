@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { SplitType, GroupExpense, Group } from "../types";
 import { GROUP_TEMPLATES, computeGroupNetRupees } from "../services/data";
+import { buildUpiPayLink } from "../utils/upi";
 import confetti from "canvas-confetti";
 import { localDateString } from "../utils/dates";
 import { normalizeRupees, parseRupeeInput, splitRupeesEqually, subtractRupees, sumRupees } from "../utils/money";
@@ -864,9 +865,11 @@ export const GroupsView: React.FC = () => {
             </div>
 
             {/* Direct UPI Intent Link */}
-            {settleModalData.upiId && (
+            {settleModalData.upiId && buildUpiPayLink({ vpa: settleModalData.upiId, name: settleModalData.toName, amountRupees: settleModalData.amount }) && (
               <a
-                href={`upi://pay?pa=${settleModalData.upiId}&pn=${encodeURIComponent(settleModalData.toName)}&am=${settleModalData.amount}&cu=INR`}
+                // Validated + encoded: a crafted UPI ID can't inject a different amount.
+                href={buildUpiPayLink({ vpa: settleModalData.upiId, name: settleModalData.toName, amountRupees: settleModalData.amount }) || undefined}
+                rel="noopener noreferrer"
                 className="w-full py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-100 transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
