@@ -56,5 +56,6 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - Group changes need a connection. They are not queued offline: the data is shared, and a stale offline write could conflict with other members. A failed change shows "Group change not saved" and the screen reloads the server's view.
 - The Groups screen has no UI yet for seat invites/claims (the API supports them), editing an expense (void only), editing members or UPI IDs, or recording a partial settlement. **Until invites have a UI, an account group is visible only to its creator.**
 - Migration matches groups and bills by name: a device group whose name already exists in the account is not uploaded (reported as "already there"). Migrated bills start at their next due date and charge the account's cash account when marked paid.
+- Deleting (voiding) a group expense keeps recorded settlements, so money already paid back shows up as owed in reverse; the confirmation doesn't warn about this yet. The personal "Group: …" ledger entry created when you paid is not voided with it.
 - Recurring "mark paid" needs a linked account. No push/email reminder is sent yet (`reminder_due` is computed but nothing delivers it).
 - `alembic upgrade` fails on SQLite (async driver, MissingGreenlet). Dev/E2E SQLite databases are created from the models; PostgreSQL migrations run in CI.

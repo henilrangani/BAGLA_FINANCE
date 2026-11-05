@@ -821,9 +821,14 @@ export const GroupsView: React.FC = () => {
                         ₹{exp.amount.toLocaleString("en-IN")}
                       </span>
                       <button
-                        onClick={() => deleteGroupExpense(activeGroup.id, exp.id)}
-                        className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                        onClick={() => {
+                          if (window.confirm(`Delete "${exp.description}" (₹${exp.amount.toLocaleString("en-IN")})? Everyone's balances will be recalculated.`)) {
+                            deleteGroupExpense(activeGroup.id, exp.id);
+                          }
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
                         title="Delete expense"
+                        aria-label={`Delete expense ${exp.description}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

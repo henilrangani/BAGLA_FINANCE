@@ -110,5 +110,6 @@ All runs from `D:\BAGLA_FINANCE_WORKSPACE\main-app`; C: free space unchanged by 
 
   A server rejection showed "Group change not saved" and rolled the screen back.
 - Found and fixed during the browser run: the empty-state "Create Your First Group" did nothing; the payer id went stale after a server refresh (server 422); "(You) (You)"; a fake invite code.
-- Not browser-verified this batch: voiding a group expense, archiving a group, the Subscriptions account flow (covered by API tests), migration of device groups (covered by unit tests).
+- Follow-up: voiding a group expense, browser-verified after adding a confirmation (the delete button deleted on one click and was invisible on touch screens). Server: expense `void`, history kept, balances recomputed.
+- Not browser-verified this batch: archiving a group, the Subscriptions account flow (covered by API tests), migration of device groups (covered by unit tests).
 - Note: the cache clear in step 5 also removed group caches of older test profiles in the built-in browser (localhost test data only).
