@@ -56,3 +56,23 @@ Bugs found and fixed by the new tests:
 - XLSX "Particulars" header not recognized (the header cleanup stripped a trailing "rs")
 - invalid regex range in the date parser
 - UPI ID pattern too strict
+
+## 2026-11-05: CI failure "Event loop is closed" + first PostgreSQL verification
+**CI run 41817934540 (e5de0c6):** frontend ✅; backend "Tests (SQLite)" ✅; "Tests (PostgreSQL)" ❌ with 10 × `RuntimeError: Event loop is closed` (read from GitHub's public annotations API; raw logs need an authenticated login).
+
+**Reproduced** locally against PostgreSQL 16 (Docker, port 55432): 25 passed, **24 errors**, all in the `fresh_db` fixture setup, raised from asyncpg's pool.
+
+**Root cause:** the process-wide async engine keeps a connection pool, and pytest-asyncio gives each test a new event loop and closes it afterwards. The next test reused a pooled asyncpg connection bound to the closed loop. SQLite passed only because the fixture already disposed the engine for SQLite.
+
+**Fix:** `await engine.dispose()` at the end of every test, on the loop that opened the connections (`backend/tests/conftest.py`). Test harness only; production runs one loop.
+
+| Check (local) | Result |
+|---|---|
+| Backend suite on PostgreSQL 16 (unraisable warnings as errors) | ✅ **49 passed** |
+| Backend suite on SQLite | ✅ 49 passed |
+| `alembic upgrade head` → `downgrade base` → `upgrade head` on PostgreSQL | ✅ exit 0 each; head = 0003; 19 tables |
+| `alembic check` (models vs migrations) | ✅ "No new upgrade operations detected" |
+| **Legacy data migration 0001→0003** with synthetic old-format rows | ✅ every row preserved and mapped: CREDIT→income, deleted→void, `idem:`→idempotency key, other external id→source_ref, unknown source→migration, account-less→"Unassigned (migrated)", UTC→IST local date (31 Oct 20:00Z → 1 Nov), "Savings "→savings, unknown type→other, 4 audit rows |
+| **Backup/restore** (`pg_dump -Fc` → `pg_restore` into a new DB) | ✅ counts, net posted paise (473,500), opening balances, schema version and 57 constraints identical |
+| Frontend tsc / vitest / build / npm audit | ✅ / 75 passed / ✅ / 0 |
+| ruff / pip-audit | ✅ / 0 vulnerabilities |

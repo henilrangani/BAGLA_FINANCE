@@ -37,6 +37,12 @@ async def fresh_db():
             await conn.run_sync(Base.metadata.create_all)
     deps.auth_limiter.hits.clear()
     yield
+    # pytest-asyncio gives every test its own event loop and closes it afterwards.
+    # Pooled asyncpg connections belong to the loop that opened them, so the pool
+    # must be emptied on this loop before it closes; otherwise the next test gets
+    # a connection bound to a dead loop ("Event loop is closed"). Production
+    # (uvicorn) runs a single loop, so this only concerns the test harness.
+    await engine.dispose()
 
 
 @pytest.fixture

@@ -8,7 +8,7 @@ The backend is built and tested, but the React app doesn't use it yet. Users sti
 | 1 Functionality | ❌ | Frontend works on its own; backend is API-only; integration (Phase 3) not started |
 | 2 Financial accuracy | 🟡 | 75 frontend + 49 backend tests cover paise maths, splits (₹100/3, ₹100.01/5), refunds, transfers, budgets, rollover, imports; dashboard doesn't yet read the server ledger |
 | 3 Security | 🟡 | No known critical issues open (`SECURITY_AUDIT.md`); no pen test; RLS and shared rate limits pending |
-| 4 Data safety | ❌ | Export ✅, delete ✅, migrations render ✅; backup/restore **not tested**; browser→server migration not built |
+| 4 Data safety | 🟡 | Export ✅, delete ✅; on PostgreSQL: migrations up/down/up ✅, legacy-data mapping ✅, local dump/restore ✅; production backups and browser→server migration not done |
 | 5 Quality | 🟡 | Unit and API tests ✅; CI configured; end-to-end (Playwright) not built |
 | 6 Performance & accessibility | ❌ | Not measured (990 kB bundle noted); no accessibility audit |
 | 7 Operations | 🟡 | Runbook, deployment and DR docs ✅; no monitoring, no deployment |
@@ -17,7 +17,7 @@ The backend is built and tested, but the React app doesn't use it yet. Users sti
 | 10 External approvals | ⬜ | List below |
 
 ## Founder actions / approvals needed
-1. Start Docker Desktop, so PostgreSQL tests, migrations and a restore test can run locally.
+1. (Done 2026-11-05: Docker Desktop is running; local PostgreSQL checks pass.)
 2. Choose hosting (frontend, backend, Postgres with backups); see `COST_ANALYSIS.md`.
 3. Decide an email provider (verification, password reset, support notifications).
 4. Legal review using `PRIVACY_COMPLIANCE_READINESS.md`; privacy notice and terms.

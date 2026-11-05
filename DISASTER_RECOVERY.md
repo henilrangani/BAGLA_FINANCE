@@ -1,6 +1,6 @@
 # Disaster Recovery
 
-**Status: procedures written, NOT verified.** A backup counts as verified only after a successful restore test, and none has been run because there's no PostgreSQL instance yet (Docker Desktop is off and nothing is deployed).
+**Status (2026-11-05):** the dump/restore procedure below **was verified once locally** (PostgreSQL 16 in Docker). Row counts, net posted paise, opening balances, schema version and all 57 constraints matched after restore. **Production backups are not verified:** there's no production database yet, and the host's automated backups and PITR need their own restore test.
 
 ## Proposed targets (not guarantees)
 - **RPO** (max data loss): 24 hours with daily backups; about 5 minutes if the host offers point-in-time recovery.
