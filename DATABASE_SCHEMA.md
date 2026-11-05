@@ -35,6 +35,15 @@ Money columns are `BIGINT` minor units (paise for INR). Timestamps are `TIMESTAM
 
 **Verified:** both directions render to valid SQL offline (`alembic upgrade head --sql`, `alembic downgrade … --sql`). **Not yet verified:** running against a live PostgreSQL. Docker Desktop wasn't running; CI runs it on push.
 
+## Migration 0004: group splits and recurring bills (additive)
+- `split_groups` (name, emoji, currency, `budget_paise`, `created_by` SET NULL, `is_archived`).
+- `split_members` (`group_id`, `user_id` nullable/SET NULL, `display_name`, `upi_id`, role admin|member, status active|removed, `invite_token_hash` unique, `invite_expires_at`).
+- `split_expenses` (`amount_paise` > 0, `paid_by_member_id` RESTRICT, `expense_date`, status posted|void, unique `(group_id, idempotency_key)`) and `split_shares` (`share_paise` ≥ 0, unique `(expense_id, member_id)`).
+- `split_settlements` (from ≠ to, `amount_paise` > 0, method, status recorded|void, unique `(group_id, idempotency_key)`).
+- `recurring_bills` (user, `amount_paise` > 0, frequency check, start/end date, status active|paused|cancelled, `remind_days_before` 0–30, `account_id` SET NULL) and `recurring_occurrences` (unique `(bill_id, due_date)`, status paid|skipped, `transaction_id` SET NULL).
+- Group balance per member = Σ paid − Σ own shares + Σ settlements sent − Σ settlements received (posted/recorded rows only). Balances always sum to 0.
+- Downgrade drops the 7 tables.
+
 ## Browser data migration (planned, Phase 3)
 1. The user signs in, then chooses "Move my data to my account".
 2. The app exports its `localStorage` ledger as JSON and keeps the local copy unchanged.

@@ -88,3 +88,27 @@ All runs from `D:\BAGLA_FINANCE_WORKSPACE\main-app`; C: free space unchanged by 
 | Browser E2E, FastAPI on **SQLite** (p.m.; Docker unresponsive) | ✅ expired session → "session ended" banner, local data intact; account name shown; edit ₹20→₹25.50 audited (`create`→`update` 2000→2550); delete → `void`, row kept; CSV import 4 rows / 1 flagged / 3 added, re-upload = 3 duplicates, 0 added; family invite (single-use; reuse 400), member sees 0 entries until shared, then only the shared ₹499 with minimal fields, unshared entry by id = 404; support ticket BF-… + rating; trial → cancel keeps access to the end date; coach 96.5% verified against figures; offline→online flush |
 | Bug found by E2E and fixed | import category names ("Food") didn't map to app ids ("cat-food") → coach/categories showed "Other"; fixed in `toCategoryId` + test |
 | PostgreSQL re-verification this session, Playwright suite | ⬜ Docker unresponsive; no automated browser suite yet (E2E was driven manually in the built-in browser) |
+
+## 2026-11-05: Phase 4 batch 1 (group splits + recurring bills on the server)
+- Backend: **56 passed** on SQLite. The 7 new tests cover:
+  - allocation and suggestions
+  - split, balances, settlement cap/idempotency/void/edit
+  - roles, seat claim and UPI validation
+  - account deletion keeps the group
+  - schedule maths, including month-end and leap year
+  - recurring lifecycle with no double posting
+  - recurring isolation
+
+  `ruff` clean, `bandit` no findings. Migration 0004 renders up/down offline. **Not run on PostgreSQL locally** (Docker unresponsive); CI runs it.
+- Frontend: **92 passed**. The 4 new tests cover server group mapping, exact-vs-equal share payloads, migration id mapping with idempotency keys and invalid-UPI drop, and duplicate-name skip. `tsc` clean, production build OK, `npm audit --omit=dev` 0 vulnerabilities.
+- Browser run (built-in browser; FastAPI on a fresh SQLite DB, Vite dev server, local test account):
+  1. Created a group from the empty state.
+  2. Added ₹100 split three ways. Server shares were 3333/3334/3333 paise; nets sum to 0.
+  3. Settled ₹33.33.
+  4. Reloaded: everything was kept.
+  5. Cleared the browser's group cache and reloaded: the group, expense and settlement were restored from the server.
+
+  A server rejection showed "Group change not saved" and rolled the screen back.
+- Found and fixed during the browser run: the empty-state "Create Your First Group" did nothing; the payer id went stale after a server refresh (server 422); "(You) (You)"; a fake invite code.
+- Not browser-verified this batch: voiding a group expense, archiving a group, the Subscriptions account flow (covered by API tests), migration of device groups (covered by unit tests).
+- Note: the cache clear in step 5 also removed group caches of older test profiles in the built-in browser (localhost test data only).

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (Phase 4 batch 1: server-backed group splits and recurring bills), 2026-11-05
+- **Group splits on the server** (`/api/v1/groups`): groups, members (admin/member), one-time seat invites + claim, expenses with equal (largest-remainder, paise-exact) or exact splits, edit/void, settlements capped at what is owed, idempotency keys on every write, balances and minimum-transfer suggestions computed server-side. Account deletion unlinks the user and keeps the group's history for the others.
+- **Recurring bills on the server** (`/api/v1/recurring`): daily/weekly/monthly/quarterly/yearly with month-end clamping, overdue and due-soon lists, "mark paid" posts one ledger expense per occurrence (idempotent, never double-posts), skip, pause/resume, cancel.
+- **App:** in account mode the Groups and Subscriptions screens read and write the server; failures show an error and roll back. Subscriptions screen rewritten (it called functions that didn't exist); the fake "AI Subscription Audit" text was replaced with real overdue/due-soon counts.
+- **Migration:** "Move my data" now also uploads device groups (members, expenses with exact shares, recorded settlements) and recurring bills. Local data is never deleted; names already in the account are reported as "already there".
+- **Fixes:** "Create Your First Group" button did nothing (dialog never rendered from the empty state); invented `name@upi` UPI IDs for new group members removed; fake pre-filled members ("Amit, Rahul, Jay, Dev") and the ₹25,000/₹20,000 default budget removed; fake invite code ("BAGLA-GROUP" / random code with no join flow) hidden; "(You) (You)" double label; stale payer id after server refresh.
+- Migration 0004 (additive, 7 tables). Tests: backend 49 → 56; frontend 88 → 92.
+
 ## Unreleased (Phase 3: React ↔ FastAPI integration), 2026-11-05
 - **Account mode:** sign in/register screen; separate storage profile per account (on-device data never modified); access token in memory, refresh token rotated.
 - **Sync:** pull accounts/transactions/budgets/goals; durable outbox with idempotency keys (`local:<id>`); offline queue; sync on reconnect and when leaving offline mode; status banner (offline / error / session ended).

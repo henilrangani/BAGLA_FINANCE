@@ -8,7 +8,7 @@
  * - Operations run in order; a failing op stops the queue (later ops may
  *   depend on it) and is retried on the next run.
  */
-import type { Budget, FinancialGoal, Transaction } from "../types";
+import type { Budget, FinancialGoal, Group, RecurringExpense, Transaction } from "../types";
 import { ApiError, api, apiWithStatus } from "./client";
 import {
   fromServerBudget,
@@ -231,6 +231,8 @@ export interface MigrationReport {
   transactions: { eligible: number; created: number; alreadyThere: number; skipped: { id: string; reason: string }[] };
   budgets: { created: number; alreadyThere: number };
   goals: { created: number; alreadyThere: number };
+  groups?: { created: number; alreadyThere: number };
+  bills?: { created: number; alreadyThere: number };
   totals: { localIncomePaise: number; localExpensePaise: number; serverIncomePaise: number; serverExpensePaise: number;
     match: boolean };
   errors: string[];
@@ -262,6 +264,8 @@ Promise<MigrationReport> {
     transactions: { eligible: 0, created: 0, alreadyThere: 0, skipped: [] },
     budgets: { created: 0, alreadyThere: 0 },
     goals: { created: 0, alreadyThere: 0 },
+    groups: { created: 0, alreadyThere: 0 },
+    bills: { created: 0, alreadyThere: 0 },
     totals: { localIncomePaise: 0, localExpensePaise: 0, serverIncomePaise: 0, serverExpensePaise: 0, match: false },
     errors: [],
   };
@@ -317,9 +321,19 @@ Promise<MigrationReport> {
     }
   }
 
-  // Stores the server doesn't hold yet (groups, recurring bills, family space,
-  // categories) are copied into the account's on-device cache if it has none.
-  for (const base of ["bagla_groups_v1", "bagla_recurring_v1", "bagla_family_v1", "bagla_categories_v1"]) {
+  // Groups and recurring bills now live on the server. Device copies are uploaded (never deleted
+  // locally), from the device profile and from any device-only cache this account kept earlier.
+  const fromBoth = (base: string) => {
+    const seen = new Set<string>();
+    return [...(readJson(profileKey(base, local)) || []), ...(readJson(profileKey(base, cloud)) || [])]
+      .filter((x: any) => x && typeof x.id === "string" && !UUID_RE.test(x.id) && !seen.has(x.id) && seen.add(x.id));
+  };
+  await migrateGroups(fromBoth("bagla_groups_v1") as Group[], report);
+  await migrateBills(fromBoth("bagla_recurring_v1") as RecurringExpense[], refs, report);
+
+  // Stores the server doesn't hold yet (family space, categories) are copied into the
+  // account's on-device cache if it has none.
+  for (const base of ["bagla_family_v1", "bagla_categories_v1"]) {
     const src = localStorage.getItem(profileKey(base, local));
     if (src && !localStorage.getItem(profileKey(base, cloud))) {
       try { localStorage.setItem(profileKey(base, cloud), src); } catch { /* ignore */ }
@@ -330,6 +344,96 @@ Promise<MigrationReport> {
     report.totals.localExpensePaise === report.totals.serverExpensePaise && report.errors.length === 0;
   try { localStorage.setItem(profileKey("bagla_migration_v1", cloud), JSON.stringify(report)); } catch { /* ignore */ }
   return report;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Upload device groups. Names already in the account are skipped (reported), not merged. */
+export async function migrateGroups(groups: Group[], report: MigrationReport): Promise<void> {
+  const r = report.groups!;
+  const existing = new Set((await api<any[]>("GET", "/api/v1/groups")).map(g => g.name.trim().toLowerCase()));
+  for (const g of groups) {
+    if (!g.name || g.archived) continue;
+    if (existing.has(g.name.trim().toLowerCase())) { r.alreadyThere++; continue; }
+    try {
+      const others = (g.members || []).filter(m => !m.isCurrentUser);
+      const created = await api<any>("POST", "/api/v1/groups", {
+        name: g.name.slice(0, 120), description: (g.description || "").slice(0, 500), cover_emoji: g.coverEmoji || "👥",
+        budget_paise: g.budget && g.budget > 0 ? toPaise(g.budget) : undefined,
+        members: others.map(m => ({ display_name: (m.name || "Member").slice(0, 120), upi_id: validUpi(m.upiId) })),
+      });
+      existing.add(g.name.trim().toLowerCase());
+      r.created++;
+      // Server members come back in creation order: me first, then the others.
+      const ids = new Map<string, string>();
+      const me = (g.members || []).find(m => m.isCurrentUser);
+      if (me) ids.set(me.id, created.my_member_id);
+      const serverOthers = created.members.filter((m: any) => !m.is_me);
+      others.forEach((m, i) => { if (serverOthers[i]) ids.set(m.id, serverOthers[i].id); });
+      for (const e of g.expenses || []) {
+        const payer = ids.get(e.paidByMemberId);
+        const amount = toPaise(Math.abs(Number(e.amount) || 0));
+        if (!payer || amount <= 0) { report.errors.push(`Group "${g.name}" expense "${e.description}": unknown payer`); continue; }
+        const shares = (e.participants || []).filter(p => ids.has(p.memberId))
+          .map(p => ({ member_id: ids.get(p.memberId)!, share_paise: toPaise(Math.abs(Number(p.amountOwed) || 0)) }));
+        const exact = shares.length > 0 && shares.reduce((a, x) => a + x.share_paise, 0) === amount;
+        try {
+          await api("POST", `/api/v1/groups/${created.id}/expenses`, {
+            description: (e.description || "Expense").slice(0, 300), amount_paise: amount, paid_by_member_id: payer,
+            category: e.categoryId, expense_date: /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : undefined,
+            idempotency_key: `local:${e.id}`.slice(0, 120),
+            ...(exact ? { split: "exact", shares } : { split: "equal",
+              participant_ids: shares.length ? shares.map(x => x.member_id) : undefined }),
+          });
+        } catch (err) {
+          report.errors.push(`Group "${g.name}" expense "${e.description}": ${(err as Error).message}`);
+        }
+      }
+      for (const st of (g.settlements || []).filter(x => x.status !== "suggested")) {
+        const from = ids.get(st.fromMemberId), to = ids.get(st.toMemberId);
+        if (!from || !to) continue;
+        try {
+          await api("POST", `/api/v1/groups/${created.id}/settlements`, {
+            from_member_id: from, to_member_id: to, amount_paise: toPaise(Math.abs(Number(st.amount) || 0)),
+            method: ["upi", "cash", "bank_transfer"].includes(String(st.paymentMethod)) ? st.paymentMethod : "other",
+            idempotency_key: `local:${st.id}`.slice(0, 120),
+          });
+        } catch (err) {
+          report.errors.push(`Group "${g.name}" settlement: ${(err as Error).message}`);
+        }
+      }
+    } catch (err) {
+      report.errors.push(`Group "${g.name}": ${(err as Error).message}`);
+    }
+  }
+}
+
+function validUpi(v: unknown): string | undefined {
+  return typeof v === "string" && /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,64}$/.test(v) ? v : undefined;
+}
+
+/** Upload device recurring bills, starting from their next due date (no invented history). */
+export async function migrateBills(bills: RecurringExpense[], refs: AccountRefs, report: MigrationReport): Promise<void> {
+  const r = report.bills!;
+  const existing = new Set((await api<any[]>("GET", "/api/v1/recurring")).map(b => b.name.trim().toLowerCase()));
+  for (const b of bills) {
+    const name = (b.name || b.merchant || "").trim();
+    const amount = toPaise(Math.abs(Number(b.amount) || 0));
+    if (!name || amount <= 0) continue;
+    if (existing.has(name.toLowerCase())) { r.alreadyThere++; continue; }
+    try {
+      const start = /^\d{4}-\d{2}-\d{2}$/.test(b.nextRenewalDate) ? b.nextRenewalDate : new Date().toISOString().slice(0, 10);
+      const created = await api<any>("POST", "/api/v1/recurring", {
+        name: name.slice(0, 120), amount_paise: amount, frequency: b.frequency || "monthly", start_date: start,
+        category: b.categoryId, account_id: refs.cashId,
+      });
+      if (b.active === false) await api("PATCH", `/api/v1/recurring/${created.id}`, { status: "paused" });
+      existing.add(name.toLowerCase());
+      r.created++;
+    } catch (err) {
+      report.errors.push(`Bill "${name}": ${(err as Error).message}`);
+    }
+  }
 }
 
 /** POST with idempotency, reporting whether the server replayed an existing row. */

@@ -67,8 +67,8 @@ export const GroupsView: React.FC = () => {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupEmoji, setNewGroupEmoji] = useState("🏖️");
   const [newGroupDesc, setNewGroupDesc] = useState("");
-  const [newGroupBudget, setNewGroupBudget] = useState("30000");
-  const [newGroupMembers, setNewGroupMembers] = useState("Amit, Rahul, Jay, Dev");
+  const [newGroupBudget, setNewGroupBudget] = useState("");
+  const [newGroupMembers, setNewGroupMembers] = useState("");
 
   // Add Expense Form State
   const [expenseDesc, setExpenseDesc] = useState("");
@@ -93,7 +93,8 @@ export const GroupsView: React.FC = () => {
   React.useEffect(() => {
     if (activeGroup) {
       setSelectedParticipants(activeGroup.members.map(m => m.id));
-      if (!paidByMemberId && currentUserMember) {
+      // Reset when the payer isn't in this group (another group, or ids replaced by the server's).
+      if (currentUserMember && !activeGroup.members.some(m => m.id === paidByMemberId)) {
         setPaidByMemberId(currentUserMember.id);
       }
     }
@@ -235,7 +236,7 @@ export const GroupsView: React.FC = () => {
       .map(m => m.trim())
       .filter(m => m.length > 0);
 
-    const budgetNum = parseFloat(newGroupBudget) || 25000;
+    const budgetNum = parseFloat(newGroupBudget) > 0 ? parseFloat(newGroupBudget) : undefined;
 
     const created = createGroup(
       newGroupName.trim(),
@@ -270,8 +271,111 @@ export const GroupsView: React.FC = () => {
     return activeGroup.settlements.filter(s => s.status === "marked_paid");
   }, [activeGroup]);
 
+  // Rendered from both the empty state and the main screen, so a first group can be created.
+  const newGroupModal = isNewGroupOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-gray-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-gray-900 dark:text-white">
+                Create New Universal Group
+              </h3>
+              <button
+                onClick={() => setIsNewGroupOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateGroupSubmit} className="space-y-3">
+              <div className="grid grid-cols-4 gap-3">
+                <div className="col-span-1">
+                  <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
+                    Emoji
+                  </label>
+                  <input
+                    type="text"
+                    value={newGroupEmoji}
+                    onChange={e => setNewGroupEmoji(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-center text-lg font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                    maxLength={2}
+                  />
+                </div>
+
+                <div className="col-span-3">
+                  <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
+                    Group Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Manali Snow Trip, Flat 402, Team Chai"
+                    value={newGroupName}
+                    onChange={e => setNewGroupName(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
+                  Description / Dates
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 10 Sep – 15 Sep or Monthly shared flat bills"
+                  value={newGroupDesc}
+                  onChange={e => setNewGroupDesc(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
+                  Friend Members (Comma-separated)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ravi, Meera"
+                  value={newGroupMembers}
+                  onChange={e => setNewGroupMembers(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                  required
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">
+                  You ({settings.name}) will be added automatically as the admin.
+                </span>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
+                  Target Budget (Optional ₹)
+                </label>
+                <input
+                  type="number"
+                  placeholder="30000"
+                  value={newGroupBudget}
+                  onChange={e => setNewGroupBudget(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
+                >
+                  Create Universal Group
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+
   if (!activeGroup) {
     return (
+      <>
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-gray-200/80 dark:border-slate-800 text-center max-w-lg mx-auto my-12 space-y-4 shadow-sm">
         <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center mx-auto text-3xl">
           👥
@@ -288,6 +392,8 @@ export const GroupsView: React.FC = () => {
           <span>Create Your First Group</span>
         </button>
       </div>
+      {newGroupModal}
+      </>
     );
   }
 
@@ -399,9 +505,12 @@ export const GroupsView: React.FC = () => {
                   </div>
                 ))}
               </div>
-              <span className="text-[11px] text-emerald-200 font-semibold">
-                Invite: <span className="font-mono bg-white/15 px-2 py-0.5 rounded-md">{activeGroup.inviteCode || "BAGLA-GROUP"}</span>
-              </span>
+              {/* Only shown when a real code exists; account groups invite per member seat. */}
+              {activeGroup.inviteCode && (
+                <span className="text-[11px] text-emerald-200 font-semibold">
+                  Invite: <span className="font-mono bg-white/15 px-2 py-0.5 rounded-md">{activeGroup.inviteCode}</span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -1001,107 +1110,7 @@ export const GroupsView: React.FC = () => {
         </div>
       )}
 
-      {/* Create New Group Modal */}
-      {isNewGroupOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-gray-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-gray-900 dark:text-white">
-                Create New Universal Group
-              </h3>
-              <button
-                onClick={() => setIsNewGroupOpen(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateGroupSubmit} className="space-y-3">
-              <div className="grid grid-cols-4 gap-3">
-                <div className="col-span-1">
-                  <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                    Emoji
-                  </label>
-                  <input
-                    type="text"
-                    value={newGroupEmoji}
-                    onChange={e => setNewGroupEmoji(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-center text-lg font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
-                    maxLength={2}
-                  />
-                </div>
-
-                <div className="col-span-3">
-                  <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                    Group Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Manali Snow Trip, Flat 402, Team Chai"
-                    value={newGroupName}
-                    onChange={e => setNewGroupName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                  Description / Dates
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 10 Sep – 15 Sep or Monthly shared flat bills"
-                  value={newGroupDesc}
-                  onChange={e => setNewGroupDesc(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                  Friend Members (Comma-separated)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Amit, Rahul, Jay, Dev, Kunal"
-                  value={newGroupMembers}
-                  onChange={e => setNewGroupMembers(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
-                  required
-                />
-                <span className="text-[10px] text-gray-400 mt-1 block">
-                  You ({settings.name}) will be added automatically as the admin.
-                </span>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                  Target Budget (Optional ₹)
-                </label>
-                <input
-                  type="number"
-                  placeholder="30000"
-                  value={newGroupBudget}
-                  onChange={e => setNewGroupBudget(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
-                >
-                  Create Universal Group
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {newGroupModal}
     </div>
   );
 };

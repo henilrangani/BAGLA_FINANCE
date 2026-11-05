@@ -17,7 +17,10 @@ from app.models import (
     GoalContribution,
     ImportBatch,
     ImportRow,
+    RecurringBill,
+    RecurringOccurrence,
     SavingsGoal,
+    SplitMember,
     SupportTicket,
     Transaction,
     User,
@@ -93,6 +96,20 @@ async def delete_my_account(payload: DeleteAccountRequest, user: User = Depends(
             .order_by(FamilyMember.created_at)))
         if others and not any(o.role == "admin" for o in others):
             others[0].role = "admin"
+    # Split groups also keep working: hand admin over if needed, then turn this
+    # user's seats into named (unlinked) members so others' balances stay intact.
+    for m in list(await db.scalars(select(SplitMember).where(
+            SplitMember.user_id == uid, SplitMember.status == "active", SplitMember.role == "admin"))):
+        others = list(await db.scalars(select(SplitMember).where(
+            SplitMember.group_id == m.group_id, SplitMember.status == "active", SplitMember.user_id.is_not(None),
+            SplitMember.user_id != uid).order_by(SplitMember.created_at)))
+        if others and not any(o.role == "admin" for o in others):
+            others[0].role = "admin"
+    await db.execute(SplitMember.__table__.update().where(SplitMember.user_id == uid)
+                     .values(user_id=None, upi_id=None, role="member"))
+    bill_ids = select(RecurringBill.id).where(RecurringBill.user_id == uid)
+    await db.execute(delete(RecurringOccurrence).where(RecurringOccurrence.bill_id.in_(bill_ids)))
+    await db.execute(delete(RecurringBill).where(RecurringBill.user_id == uid))
     batch_ids = select(ImportBatch.id).where(ImportBatch.user_id == uid)
     await db.execute(delete(ImportRow).where(ImportRow.batch_id.in_(batch_ids)))
     # Explicit order (children first) so it works without relying on DB cascades.

@@ -64,5 +64,19 @@ Responses include the derived `balance_paise` and `pending_paise`.
 ## Billing (Bagla's own plans; no payment gateway connected)
 `GET /billing/plans` (`purchasable: false`) · `GET /billing/me` (server-decided access) · `POST /billing/trial {plan_code}` (one per account) · `POST /billing/cancel` (renewal stops; access continues until the trial or period end) · `POST /billing/resume` · `GET /billing/history`.
 
+## Group splits (`/groups`)
+All amounts are integer paise. Non-members get 404; admin-only actions by members get 403.
+- `GET /groups` (my active memberships) · `POST /groups` `{name, description?, cover_emoji?, budget_paise?, my_upi_id?, members:[{display_name, upi_id?}]}` (creator becomes admin) · `GET/PATCH /groups/{id}` (PATCH admin only; `is_archived` archives).
+- Members: `POST /groups/{id}/members`, `PATCH /groups/{id}/members/{mid}` (self or admin; UPI IDs validated), `DELETE …` (refused while the member's balance ≠ 0 or for the last admin), `POST …/{mid}/invite` → one-time token (7 days, stored hashed), `POST /groups/claim {token}`.
+- Expenses: `POST /groups/{id}/expenses` `{description, amount_paise, paid_by_member_id, split: "equal"|"exact", participant_ids?, shares?: [{member_id, share_paise}], category?, expense_date?, idempotency_key?}`; exact shares must sum to the amount. `PATCH …/expenses/{eid}` (an amount change re-splits equally), `DELETE …` voids (creator or admin).
+- Settlements: `POST /groups/{id}/settlements` `{from_member_id, to_member_id, amount_paise, method, note?, idempotency_key?}`, capped at min(what `from` owes, what `to` is owed), otherwise 409; `DELETE …/settlements/{sid}` voids.
+- Every write returns the group detail: members with `net_paise`, expenses with shares, settlements, `total_spend_paise`, `suggested_settlements`.
+
+## Recurring bills (`/recurring`)
+- `GET /recurring` (excludes cancelled) · `POST /recurring` `{name, amount_paise, frequency, start_date, end_date?, category?, account_id?, remind_days_before?}` · `PATCH /recurring/{id}` (status active/paused/cancelled; a cancelled bill can't change: 409).
+- `GET /recurring/due?within_days=N`: overdue and upcoming occurrences.
+- `POST /recurring/{id}/occurrences/{YYYY-MM-DD}/pay`: the date must be on the schedule (422), the bill must be active (409) and have an account. Posts one ledger expense with key `rec:{bill}:{date}`; repeating it is a no-op. `POST …/skip` marks it skipped.
+- Each bill view includes `overdue_dates`, `next_due_date`, `reminder_due`, `history`.
+
 ## Admin (staff only; `users.is_admin` set in the database; others get 404)
 `GET /admin/overview` (counts only) · `GET/PATCH /admin/tickets` · `GET /admin/feedback` · `PUT /admin/plans` (price optional; never invented).

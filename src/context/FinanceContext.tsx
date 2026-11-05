@@ -39,11 +39,12 @@ import {
 import confetti from "canvas-confetti";
 import { localDateString, localMonthPrefix, localTimeString } from "../utils/dates";
 import { applyCashEffect, countsTowardTotals, netSpend, normalizeTransactions, spendByCategory, withDerivedSpent } from "../utils/ledger";
-import { formatINR, normalizeRupees, safeRupees, subtractRupees } from "../utils/money";
+import { formatINR, normalizeRupees, safeRupees, subtractRupees, toPaise } from "../utils/money";
 import { hashPin, isValidPin, lockoutDelayMs, verifyPin } from "../utils/pin";
 import { activeProfile, profileKey } from "../api/profile";
-import { ApiError, readSession, setOfflineGuard } from "../api/client";
+import { api, ApiError, readSession, setOfflineGuard } from "../api/client";
 import { enqueue, ensureAccounts, pendingCount, pullAll, runOutbox, unsyncedIds, type OutboxOp } from "../api/sync";
+import { addRemoteExpense, archiveRemoteGroup, createRemoteGroup, pullGroups, recordRemoteSettlement, voidRemoteExpense } from "../api/groups";
 import type { AccountRefs } from "../api/mappers";
 
 interface FinanceContextType {
@@ -495,6 +496,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setCashWallet(w => ({ ...w, currentBalance: data.cashBalanceRupees, lastAdjustedDate: localDateString() }));
         // Show the account holder, never a sample/default name.
         setSettingsState(s => ({ ...s, name: data.user.fullName, email: data.user.email }));
+        if (pull) setGroups(await pullGroups());
       }
       setCloud(c => ({ ...c, state: "idle", pending: pendingCount(PROFILE), message: res.error,
         lastSyncedAt: new Date().toISOString() }));
@@ -508,6 +510,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (again.current) { again.current = false; setTimeout(() => syncNow(false), 50); }
     }
   }, []);
+
+  /**
+   * Account mode: group writes go straight to the server (group data is shared with other
+   * people, so it is never queued offline). The screen updates optimistically, then reloads
+   * the server's view, which also undoes the optimistic change if the server refused it.
+   */
+  const groupOp = (op: () => Promise<unknown>, after?: (result: any) => void): boolean => {
+    if (PROFILE.kind !== "cloud") return false;
+    op()
+      .then(r => { after?.(r); })
+      .catch((e: ApiError) => setCloud(c => ({ ...c, state: e?.isOffline ? "offline" : "error",
+        message: `Group change not saved: ${e?.message || "request failed"}` })))
+      .finally(() => { pullGroups().then(setGroups).catch(() => {}); });
+    return true;
+  };
+  const newKey = (prefix: string) =>
+    `${prefix}:${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`}`;
 
   const queue = (op: OutboxOp) => {
     if (PROFILE.kind !== "cloud") return;
@@ -767,7 +786,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   ): Group => {
     const memberList = [
       // No default UPI ID: a hardcoded one would send settlement requests to the wrong person.
-      { id: "m-henil", name: `${settings.name || "You"} (You)`, isCurrentUser: true },
+      { id: "m-henil", name: settings.name || "You", isCurrentUser: true },
       ...newMembers.map((m, idx) => ({
         id: `m-${Date.now()}-${idx}`,
         name: m.name,
@@ -781,11 +800,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       name,
       description: description || "Group expense tracker",
       coverEmoji: coverEmoji || "👥",
-      budget: budget || 20000,
+      budget: budget && budget > 0 ? budget : undefined,
       currency: "INR",
       createdBy: "m-henil",
       createdAt: localDateString(),
-      inviteCode: `${name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)}-${Math.floor(1000 + Math.random() * 9000)}`,
+      inviteCode: "", // no join-by-code flow exists on device; account groups use per-seat invites
       members: memberList,
       expenses: [],
       settlements: []
@@ -794,6 +813,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setGroups(prev => [newGroup, ...prev]);
     setSelectedGroupId(newGroup.id);
     setActiveGroup(newGroup);
+    groupOp(() => createRemoteGroup(name, newGroup.description, newGroup.coverEmoji, budget, newMembers),
+      (id: string) => setSelectedGroupId(id));
     return newGroup;
   };
 
@@ -801,17 +822,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     name: string,
     coverEmoji: string = "✨",
     membersList: string[] = [],
-    budget: number = 20000,
+    budget?: number,
     description: string = "Shared expenses & splits"
   ): Group => {
     const filteredMembers = membersList
       .map(m => m.trim())
       .filter(m => m.length > 0 && !m.toLowerCase().includes("you"));
 
-    const memberObjs = filteredMembers.map(mName => ({
-      name: mName,
-      upiId: `${mName.toLowerCase().replace(/[^a-z0-9]/g, "")}@upi`
-    }));
+    // No invented UPI IDs: a guessed handle could route a real payment to a stranger.
+    const memberObjs = filteredMembers.map(mName => ({ name: mName }));
 
     return addGroup(name, description, budget, memberObjs, coverEmoji);
   };
@@ -821,15 +840,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const name = customName || tpl.sampleName;
     const memberObjs = tpl.suggestedMembers
       .filter(m => !m.toLowerCase().includes("you"))
-      .map(mName => ({
-        name: mName,
-        upiId: `${mName.toLowerCase().replace(/[^a-z0-9]/g, "")}@upi`
-      }));
+      .map(mName => ({ name: mName }));
 
     return addGroup(name, tpl.sampleDesc, tpl.defaultBudget, memberObjs, tpl.emoji);
   };
 
   const deleteGroup = (groupId: string) => {
+    groupOp(() => archiveRemoteGroup(groupId));
     setGroups(prev => {
       const remaining = prev.filter(g => g.id !== groupId);
       if (selectedGroupId === groupId && remaining.length > 0) {
@@ -841,6 +858,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const deleteGroupExpense = (groupId: string, expenseId: string) => {
+    groupOp(() => voidRemoteExpense(groupId, expenseId));
     setGroups(prev => prev.map(g => {
       if (g.id === groupId) {
         const updatedExpenses = g.expenses.filter(e => e.id !== expenseId);
@@ -877,6 +895,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return g;
     }));
 
+    groupOp(() => addRemoteExpense(groupId, expenseData, newKey("ge")));
+
     // If paid by current user, optionally log in personal transactions too
     const currentMemberId = groups.find(g => g.id === groupId)?.members.find(m => m.isCurrentUser)?.id;
     if (expenseData.paidByMemberId === currentMemberId) {
@@ -901,6 +921,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const settleGroupPayment = (groupId: string, fromMemberId: string, toMemberId: string, amount: number, method: PaymentMethod = "upi") => {
+    groupOp(() => recordRemoteSettlement(groupId, fromMemberId, toMemberId, amount, method, newKey("gs")));
     setGroups(prev => prev.map(g => {
       if (g.id === groupId) {
         const existingSettlement = g.settlements.find(
@@ -955,6 +976,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const markSettlementPaid = (groupId: string, settlementId: string, method = "upi") => {
+    const target = groups.find(g => g.id === groupId)?.settlements.find(x => x.id === settlementId);
+    if (target) {
+      groupOp(() => recordRemoteSettlement(groupId, target.fromMemberId, target.toMemberId, target.amount, method,
+        newKey("gs")));
+    }
     setGroups(prev => prev.map(g => {
       if (g.id === groupId) {
         const updated = g.settlements.map(s => {
@@ -984,6 +1010,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateGroup = (updated: Group) => {
+    groupOp(() => api("PATCH", `/api/v1/groups/${updated.id}`, {
+      name: updated.name, description: updated.description,
+      budget_paise: updated.budget && updated.budget > 0 ? toPaise(updated.budget) : undefined }));
     const withOptimized = {
       ...updated,
       settlements: recomputeSettlements(updated)

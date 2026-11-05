@@ -30,7 +30,6 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - No UI yet to create `transfer` or `refund` entries manually, or to link a refund to its original expense.
 - Deleting a transaction removes it from storage. There's no soft-delete or audit trail yet.
 - A group expense paid by the user is also logged as a personal expense of the **full** amount, not the user's share.
-- Group budget defaults to ₹25,000 when left empty.
 - The daily summary's 30-day average divides by 30 even for users with less history.
 
 ## Product and UX
@@ -47,8 +46,15 @@ _As of 2026-11-04, after Phase 2 batch 2._
 
 ## Phase 3 integration (2026-11-05)
 - Refresh token is stored in localStorage (readable by page scripts; mitigated by the strict CSP). Planned: httpOnly cookie.
-- In account mode, group splits, recurring bills, the family space screen and the cash-wallet denomination register remain device-only (no server models yet). Server-backed family sharing lives on the "Account features" screen.
+- In account mode, the family space screen and the cash-wallet denomination register remain device-only. Server-backed family sharing lives on the "Account features" screen. (Group splits and recurring bills are server-backed since 2026-11-05.)
 - Local transfers/refunds can't be synced from the app screens yet (the mapper refuses them rather than guessing); migration reports them as "not supported yet".
 - Payment method is inferred from the server account on pull (cash account → cash, others → bank/UPI), so a local "credit card" label may come back as "bank transfer".
 - Browser E2E was run manually in the built-in browser; there's no automated Playwright suite yet.
 - The account-mode UI hasn't been re-verified against PostgreSQL since Docker became unresponsive (verified on PostgreSQL earlier on 2026-11-05, and on SQLite afterwards).
+
+## Group splits and recurring bills (2026-11-05)
+- Group changes need a connection. They are not queued offline: the data is shared, and a stale offline write could conflict with other members. A failed change shows "Group change not saved" and the screen reloads the server's view.
+- The Groups screen has no UI yet for seat invites/claims (the API supports them), editing an expense (void only), editing members or UPI IDs, or recording a partial settlement. **Until invites have a UI, an account group is visible only to its creator.**
+- Migration matches groups and bills by name: a device group whose name already exists in the account is not uploaded (reported as "already there"). Migrated bills start at their next due date and charge the account's cash account when marked paid.
+- Recurring "mark paid" needs a linked account. No push/email reminder is sent yet (`reminder_due` is computed but nothing delivers it).
+- `alembic upgrade` fails on SQLite (async driver, MissingGreenlet). Dev/E2E SQLite databases are created from the models; PostgreSQL migrations run in CI.

@@ -112,6 +112,9 @@ function MigrationPanel() {
           <p>Entries: {report.transactions.created} copied, {report.transactions.alreadyThere} already in your account,
             {" "}{report.transactions.skipped.length} not supported yet.</p>
           <p>Budgets: {report.budgets.created} copied, {report.budgets.alreadyThere} already there · Goals: {report.goals.created} copied, {report.goals.alreadyThere} already there.</p>
+          {report.groups && report.bills && (
+            <p>Groups: {report.groups.created} copied, {report.groups.alreadyThere} already there · Recurring bills: {report.bills.created} copied, {report.bills.alreadyThere} already there.</p>
+          )}
           <p>Income {formatINR(report.totals.localIncomePaise / 100)} on device vs {formatINR(report.totals.serverIncomePaise / 100)} in account ·
             Expenses {formatINR(report.totals.localExpensePaise / 100)} vs {formatINR(report.totals.serverExpensePaise / 100)}.</p>
           {report.errors.length > 0 && (
