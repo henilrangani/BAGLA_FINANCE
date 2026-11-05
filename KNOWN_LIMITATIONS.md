@@ -44,3 +44,11 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - Behaviour of the new `api/` wrappers on Vercel, especially raw-body reading for the webhook.
 - Availability and pricing of the Gemini model name `gemini-3.7-flash`.
 - Legal and compliance review (DPDP, RBI/NPCI) hasn't happened. The app makes no compliance claims.
+
+## Phase 3 integration (2026-11-05)
+- Refresh token is stored in localStorage (readable by page scripts; mitigated by the strict CSP). Planned: httpOnly cookie.
+- In account mode, group splits, recurring bills, the family space screen and the cash-wallet denomination register remain device-only (no server models yet). Server-backed family sharing lives on the "Account features" screen.
+- Local transfers/refunds can't be synced from the app screens yet (the mapper refuses them rather than guessing); migration reports them as "not supported yet".
+- Payment method is inferred from the server account on pull (cash account → cash, others → bank/UPI), so a local "credit card" label may come back as "bank transfer".
+- Browser E2E was run manually in the built-in browser; there's no automated Playwright suite yet.
+- The account-mode UI hasn't been re-verified against PostgreSQL since Docker became unresponsive (verified on PostgreSQL earlier on 2026-11-05, and on SQLite afterwards).

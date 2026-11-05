@@ -43,8 +43,9 @@ export const DEFAULT_CATEGORIES: Category[] = [
 ];
 
 export const INITIAL_USER_SETTINGS: UserSettings = {
-  name: "Henil",
-  email: "henilrangani75@gmail.com",
+  // No personal defaults: the name comes from onboarding or the signed-in account.
+  name: "",
+  email: "",
   profileType: "professional",
   currency: "INR",
   accessibilityMode: "default",
@@ -283,7 +284,7 @@ export const INITIAL_GOA_GROUP: Group = {
   inviteCode: "GOA-FRIENDS-2026",
   members: [
     { id: "m-amit", name: "Amit", upiId: "amitv@icici", phone: "+91 97890 55667" },
-    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, upiId: "henil@okhdfcbank", phone: "+91 98765 43210" },
+    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, phone: "+91 98765 43210" },
     { id: "m-rahul", name: "Rahul", upiId: "rahul@okaxis", phone: "+91 98234 11223" },
     { id: "m-jay", name: "Jay", upiId: "jayp@paytm", phone: "+91 99123 44556" },
     { id: "m-dev", name: "Dev", upiId: "devt@ybl", phone: "+91 96543 77889" }
@@ -412,7 +413,7 @@ export const INITIAL_FLATMATES_GROUP: Group = {
   createdAt: "2026-08-01",
   inviteCode: "FLAT402-ROOMS",
   members: [
-    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, upiId: "henil@okhdfcbank", phone: "+91 98765 43210" },
+    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, phone: "+91 98765 43210" },
     { id: "m-pritesh", name: "Pritesh", upiId: "pritesh@okaxis", phone: "+91 98111 22334" },
     { id: "m-aman", name: "Aman", upiId: "aman@paytm", phone: "+91 99222 33445" },
     { id: "m-rohan", name: "Rohan", upiId: "rohan@ybl", phone: "+91 97333 44556" }
@@ -490,7 +491,7 @@ export const INITIAL_OFFICE_GROUP: Group = {
   createdAt: "2026-08-10",
   inviteCode: "OFFICE-CHAI-TEAM",
   members: [
-    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, upiId: "henil@okhdfcbank", phone: "+91 98765 43210" },
+    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, phone: "+91 98765 43210" },
     { id: "m-siddharth", name: "Siddharth", upiId: "sid@icici", phone: "+91 98444 55667" },
     { id: "m-neha", name: "Neha", upiId: "neha@okaxis", phone: "+91 99555 66778" },
     { id: "m-kunal", name: "Kunal", upiId: "kunal@paytm", phone: "+91 97666 77889" }

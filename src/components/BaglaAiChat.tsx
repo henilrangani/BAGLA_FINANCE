@@ -45,7 +45,7 @@ export const BaglaAiChat: React.FC = () => {
     {
       id: "msg-welcome",
       role: "assistant",
-      content: `Hello ${settings.name}! I am **Bagla AI**, your personal financial assistant.
+      content: `Hello${settings.name ? ` ${settings.name.split(" ")[0]}` : ""}! I am **Bagla AI**, your personal financial assistant.
 
 I have direct access to your recorded transactions, budgets, subscriptions, and Goa group trip balances. 
 

@@ -24,6 +24,7 @@ import {
 import { Transaction, PaymentMethod, TransactionSource, TransactionType } from "../types";
 import { localDateString } from "../utils/dates";
 import { parseStatementCsv } from "../utils/csv";
+import { TransactionEditForm } from "../components/TransactionEditForm";
 
 export const TransactionsView: React.FC = () => {
   const {
@@ -43,8 +44,16 @@ export const TransactionsView: React.FC = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("all");
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedType, setSelectedType] = useState<"all" | "expense" | "income">("all");
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransactionRaw] = useState<Transaction | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const setSelectedTransaction = (t: Transaction | null) => {
+    setSelectedTransactionRaw(t);
+    if (!t || t.id !== selectedTransaction?.id) {
+      setIsEditing(false);
+      setConfirmDelete(false);
+    }
+  };
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importCsvText, setImportCsvText] = useState("");
   const [importErrors, setImportErrors] = useState<string[]>([]);
@@ -418,25 +427,63 @@ export const TransactionsView: React.FC = () => {
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => {
-                    deleteTransaction(selectedTransaction.id);
-                    setSelectedTransaction(null);
+              {isEditing ? (
+                <TransactionEditForm
+                  tx={selectedTransaction}
+                  categories={categories}
+                  onCancel={() => setIsEditing(false)}
+                  onSave={updates => {
+                    updateTransaction(selectedTransaction.id, updates);
+                    setSelectedTransaction({ ...selectedTransaction, ...updates });
+                    setIsEditing(false);
                   }}
-                  className="flex-1 py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 font-bold rounded-2xl flex items-center justify-center gap-1.5 transition-colors border border-rose-200 dark:border-rose-800 cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete</span>
-                </button>
-
-                <button
-                  onClick={() => setSelectedTransaction(null)}
-                  className="flex-1 py-3 bg-gray-900 hover:bg-black text-white dark:bg-white dark:text-gray-900 font-bold rounded-2xl transition-colors cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
+                />
+              ) : confirmDelete ? (
+                <div className="space-y-2 pt-2" role="alertdialog" aria-label="Confirm delete">
+                  <p className="text-xs font-semibold text-gray-700 dark:text-slate-300">
+                    Delete this entry? It stops counting in your totals. When you're signed in, it's kept in your account history as "voided".
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        deleteTransaction(selectedTransaction.id);
+                        setSelectedTransaction(null);
+                        setConfirmDelete(false);
+                      }}
+                      className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl cursor-pointer"
+                    >
+                      Yes, delete
+                    </button>
+                    <button onClick={() => setConfirmDelete(false)} className="flex-1 py-3 border border-gray-300 dark:border-slate-700 font-bold rounded-2xl cursor-pointer">
+                      Keep it
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex-1 py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 font-bold rounded-2xl flex items-center justify-center gap-1.5 transition-colors border border-rose-200 dark:border-rose-800 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </button>
+                  {(selectedTransaction.type === "income" || selectedTransaction.type === "expense") && (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex-1 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 font-bold rounded-2xl border border-indigo-200 dark:border-indigo-800 cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedTransaction(null)}
+                    className="flex-1 py-3 bg-gray-900 hover:bg-black text-white dark:bg-white dark:text-gray-900 font-bold rounded-2xl transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

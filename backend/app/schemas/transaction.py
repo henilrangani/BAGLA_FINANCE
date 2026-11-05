@@ -102,6 +102,7 @@ class TransactionResponse(BaseModel):
     transfer_group_id: UUID | None
     refund_of_id: UUID | None
     reverses_id: UUID | None
+    shared_family_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

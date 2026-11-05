@@ -17,6 +17,8 @@ import { CashWalletView } from "./views/CashWalletView";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { PrivacyCenterView } from "./views/PrivacyCenterView";
 import { AdminDashboardView } from "./views/AdminDashboardView";
+import { AccountSyncView } from "./views/AccountSyncView";
+import { CloudHubView } from "./views/CloudHubView";
 
 import { FastAddExpenseModal } from "./components/FastAddExpenseModal";
 import { VoiceExpenseModal } from "./components/VoiceExpenseModal";
@@ -102,7 +104,8 @@ function MainApp() {
   const {
     currentTab,
     setCurrentTab,
-    settings
+    settings,
+    cloud
   } = useFinance();
 
   const [showLanding, setShowLanding] = useState(false);
@@ -133,6 +136,23 @@ function MainApp() {
 
         {/* View Content Area */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-12">
+          {cloud.enabled && ["offline", "error", "signed_out"].includes(cloud.state) && currentTab !== "account" && (
+            <button
+              onClick={() => setCurrentTab("account")}
+              role="status"
+              className={`w-full mb-4 px-4 py-2.5 rounded-2xl text-xs font-bold text-left cursor-pointer border ${
+                cloud.state === "offline"
+                  ? "bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200"
+                  : "bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200"
+              }`}
+            >
+              {cloud.state === "offline"
+                ? `Offline: ${cloud.pending} change(s) saved on this device will sync when you're back online.`
+                : cloud.state === "signed_out"
+                  ? "Your session ended. Tap to sign in again; your changes are kept."
+                  : `Sync problem: ${cloud.message || "tap for details"}`}
+            </button>
+          )}
           {currentTab === "dashboard" && <DashboardView />}
           {currentTab === "transactions" && <TransactionsView />}
           {currentTab === "groups" && <GroupsView />}
@@ -143,6 +163,8 @@ function MainApp() {
           {currentTab === "analytics" && <AnalyticsView />}
           {currentTab === "privacy" && <PrivacyCenterView />}
           {currentTab === "admin" && <AdminDashboardView />}
+          {currentTab === "account" && <AccountSyncView />}
+          {currentTab === "cloud" && <CloudHubView />}
 
           {/* Footer Brand Feature Banner (Image 2) */}
           <FooterBrandBanner />

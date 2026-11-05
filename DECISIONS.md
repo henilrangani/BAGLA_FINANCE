@@ -60,6 +60,9 @@ Preview first; per-row errors; deterministic idempotency keys make re-imports ha
 ### D18. Family sharing is opt-in per entry
 No "share everything" switch. Removal un-shares immediately. Account deletion promotes another admin instead of deleting the family.
 
+### D20. Local-first UI with per-account storage profiles and an outbox
+Signing in switches to a storage namespace for that account; the local profile is untouched. Writes apply locally first and sync through an idempotent outbox, so offline use and retries are safe. Server data replaces the cache on each pull. Group splits, recurring bills and the family space screen stay device-only until their server models exist.
+
 ### D19. Admin is a database-only flag and sees aggregates, not ledgers
 Admin routes return 404 to non-staff.
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Transaction,
   Category,
@@ -41,6 +41,10 @@ import { localDateString, localMonthPrefix, localTimeString } from "../utils/dat
 import { applyCashEffect, countsTowardTotals, netSpend, normalizeTransactions, spendByCategory, withDerivedSpent } from "../utils/ledger";
 import { formatINR, normalizeRupees, safeRupees, subtractRupees } from "../utils/money";
 import { hashPin, isValidPin, lockoutDelayMs, verifyPin } from "../utils/pin";
+import { activeProfile, profileKey } from "../api/profile";
+import { ApiError, readSession, setOfflineGuard } from "../api/client";
+import { enqueue, ensureAccounts, pendingCount, pullAll, runOutbox, unsyncedIds, type OutboxOp } from "../api/sync";
+import type { AccountRefs } from "../api/mappers";
 
 interface FinanceContextType {
   // State
@@ -137,6 +141,10 @@ interface FinanceContextType {
   unlockApp: (pin: string) => Promise<{ ok: boolean; retryInMs?: number }>;
   exportEncryptedLedger: () => string;
 
+  // Account sync
+  cloud: CloudState;
+  syncNow: (pull?: boolean) => void;
+
   // Connections & Statements
   importStatementTransactions: (items: StatementImportPreviewItem[]) => void;
   dismissAnomaly: (id: string) => void;
@@ -161,6 +169,29 @@ const STORAGE_KEYS = {
   ANOMALIES: "bagla_anomalies_v1"
 };
 
+// Local data and each signed-in account use separate storage (see api/profile.ts),
+// so account mode can never overwrite the browser-only data.
+const PROFILE = activeProfile();
+for (const k of Object.keys(STORAGE_KEYS) as (keyof typeof STORAGE_KEYS)[]) {
+  STORAGE_KEYS[k] = profileKey(STORAGE_KEYS[k], PROFILE) as any;
+}
+
+/** Remove only the active profile's data (never other profiles, the session or the local copy). */
+function clearActiveProfileStorage() {
+  for (const key of Object.values(STORAGE_KEYS)) {
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+  }
+}
+
+export interface CloudState {
+  enabled: boolean;
+  email?: string;
+  state: "local" | "idle" | "syncing" | "offline" | "error" | "signed_out";
+  pending: number;
+  message?: string;
+  lastSyncedAt?: string;
+}
+
 /** Parse stored JSON; corrupt or missing data returns null instead of crashing the app. */
 function safeParse(raw: string | null): any {
   if (!raw) return null;
@@ -176,7 +207,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Load settings from localStorage or defaults
   const [settings, setSettingsState] = useState<UserSettings>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    return { ...INITIAL_USER_SETTINGS, ...(safeParse(saved) || {}) };
+    // Account mode never shows demo sample data.
+    return { ...INITIAL_USER_SETTINGS, ...(safeParse(saved) || {}), ...(PROFILE.kind === "cloud" ? { isDemoMode: false } : {}) };
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
@@ -184,7 +216,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // normalizeTransactions repairs legacy float amounts to exact paise (idempotent).
     { const parsed = safeParse(saved); if (Array.isArray(parsed)) return normalizeTransactions(parsed); }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
     return isDemo ? normalizeTransactions(INITIAL_TRANSACTIONS) : [];
   });
 
@@ -199,7 +231,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem(STORAGE_KEYS.BUDGETS);
     { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
     return isDemo ? INITIAL_BUDGETS : [];
   });
 
@@ -210,7 +242,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       loaded = Array.isArray(safeParse(saved)) ? safeParse(saved) : [];
     } else {
       const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+      const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
       loaded = isDemo ? INITIAL_GROUPS : [];
     }
     // Optimize settlements on init
@@ -238,7 +270,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem(STORAGE_KEYS.FAMILY);
     { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
     return isDemo ? INITIAL_FAMILY_SPACE : {
       id: "fam-space-empty",
       name: "Household Space",
@@ -252,7 +284,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem(STORAGE_KEYS.RECURRING);
     { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
     return isDemo ? INITIAL_RECURRING : [];
   });
 
@@ -260,7 +292,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem(STORAGE_KEYS.GOALS);
     { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
     return isDemo ? INITIAL_GOALS : [];
   });
 
@@ -268,7 +300,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem(STORAGE_KEYS.CASH);
     { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
     return isDemo ? INITIAL_CASH_WALLET : {
       openingBalance: 0,
       cashReceived: 0,
@@ -282,7 +314,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem(STORAGE_KEYS.CONNECTIONS);
     { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
     return isDemo ? INITIAL_CONNECTIONS : [];
   });
 
@@ -290,7 +322,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem(STORAGE_KEYS.ANOMALIES);
     { const parsed = safeParse(saved); if (parsed) return parsed; }
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const isDemo = safeParse(savedSettings)?.isDemoMode ?? INITIAL_USER_SETTINGS.isDemoMode;
+    const isDemo = safeParse(savedSettings)?.isDemoMode ?? (PROFILE.kind === "cloud" ? false : INITIAL_USER_SETTINGS.isDemoMode);
     return isDemo ? INITIAL_ANOMALIES : [];
   });
 
@@ -424,6 +456,81 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [budgetDefs, transactions, today]
   );
 
+  // ------------------------------------------------------------------ account sync
+  const [cloud, setCloud] = useState<CloudState>(() => PROFILE.kind === "cloud"
+    ? { enabled: true, email: readSession()?.email, state: readSession() ? "syncing" : "signed_out",
+        pending: pendingCount(PROFILE) }
+    : { enabled: false, state: "local", pending: 0 });
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const refsRef = useRef<AccountRefs | null>(null);
+  const syncing = useRef(false);
+  const again = useRef(false);
+
+  const syncNow = useCallback(async (pull = false) => {
+    if (PROFILE.kind !== "cloud") return;
+    if (syncing.current) { again.current = true; return; }
+    syncing.current = true;
+    setCloud(c => ({ ...c, state: "syncing" }));
+    try {
+      const refs = refsRef.current || (refsRef.current = await ensureAccounts());
+      const res = await runOutbox(PROFILE, refs);
+      const remap = res.created;
+      if (Object.keys(remap).length) {
+        setTransactions(prev => prev.map(t => (remap[t.id] ? { ...t, id: remap[t.id] } : t)));
+        setBudgets(prev => prev.map(b => (remap[b.id] ? { ...b, id: remap[b.id] } : b)));
+        setGoals(prev => prev.map(g => (remap[g.id] ? { ...g, id: remap[g.id] } : g)));
+      }
+      if (res.error && res.remaining > 0) {
+        setCloud(c => ({ ...c, state: res.offline ? "offline" : "error", pending: res.remaining, message: res.error }));
+        return;
+      }
+      if (pull || res.done > 0) {
+        const data = await pullAll();
+        refsRef.current = data.refs;
+        const keep = unsyncedIds(PROFILE);
+        setTransactions(prev => [...prev.filter(t => keep.has(t.id)), ...data.transactions]);
+        setBudgets(prev => [...prev.filter(b => keep.has(b.id)), ...data.budgets]);
+        setGoals(prev => [...prev.filter(g => keep.has(g.id)), ...data.goals]);
+        setCashWallet(w => ({ ...w, currentBalance: data.cashBalanceRupees, lastAdjustedDate: localDateString() }));
+        // Show the account holder, never a sample/default name.
+        setSettingsState(s => ({ ...s, name: data.user.fullName, email: data.user.email }));
+      }
+      setCloud(c => ({ ...c, state: "idle", pending: pendingCount(PROFILE), message: res.error,
+        lastSyncedAt: new Date().toISOString() }));
+    } catch (e) {
+      const err = e as ApiError;
+      const signedOut = err instanceof ApiError && err.status === 401 && !readSession();
+      setCloud(c => ({ ...c, state: signedOut ? "signed_out" : err?.isOffline ? "offline" : "error",
+        pending: pendingCount(PROFILE), message: err?.message || "Sync failed" }));
+    } finally {
+      syncing.current = false;
+      if (again.current) { again.current = false; setTimeout(() => syncNow(false), 50); }
+    }
+  }, []);
+
+  const queue = (op: OutboxOp) => {
+    if (PROFILE.kind !== "cloud") return;
+    enqueue(PROFILE, op);
+    setCloud(c => ({ ...c, pending: pendingCount(PROFILE) }));
+    setTimeout(() => syncNow(false), 300);
+  };
+
+  useEffect(() => {
+    if (PROFILE.kind !== "cloud") return;
+    setOfflineGuard(() => !!settingsRef.current.offlineMode);
+    syncNow(true);
+    const onOnline = () => syncNow(true);
+    window.addEventListener("online", onOnline);
+    const timer = setInterval(() => { if (pendingCount(PROFILE) > 0) syncNow(false); }, 60_000);
+    return () => { window.removeEventListener("online", onOnline); clearInterval(timer); };
+  }, [syncNow]);
+
+  // Leaving offline mode flushes anything queued while offline (explicit, not timer-dependent).
+  useEffect(() => {
+    if (PROFILE.kind === "cloud" && !settings.offlineMode) syncNow(true);
+  }, [settings.offlineMode, syncNow]);
+
   // Recalculate health score whenever key financial data changes
   const healthScore = calculateFinancialHealth(
     transactions,
@@ -463,6 +570,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTransactions(prev => [newTx, ...prev]);
     // Budgets are derived from transactions; only the cash wallet is incremental.
     setCashWallet(prev => applyCashEffect(prev, newTx, 1, localDateString()));
+    queue({ kind: "tx_create", localId: newTx.id, tx: newTx });
 
     if (dupCheck.isDuplicate) {
       return { success: true, duplicateWarning: dupCheck.reason, tx: newTx };
@@ -483,12 +591,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTransactions(prev => prev.map(t => (t.id === id ? next : t)));
     // Reverse the old cash effect and apply the new one.
     setCashWallet(prev => applyCashEffect(applyCashEffect(prev, old, -1, localDateString()), next, 1, localDateString()));
+    queue({ kind: "tx_update", localId: id, updates, current: old });
   };
 
   const deleteTransaction = (id: string) => {
     const old = transactions.find(t => t.id === id);
     setTransactions(prev => prev.filter(t => t.id !== id));
     if (old) setCashWallet(prev => applyCashEffect(prev, old, -1, localDateString()));
+    if (old) queue({ kind: "tx_delete", localId: id });
   };
 
   // Natural language parser via backend Gemini
@@ -656,7 +766,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     coverEmoji: string = "👥"
   ): Group => {
     const memberList = [
-      { id: "m-henil", name: `${settings.name} (You)`, isCurrentUser: true, upiId: "henil@okhdfcbank" },
+      // No default UPI ID: a hardcoded one would send settlement requests to the wrong person.
+      { id: "m-henil", name: `${settings.name || "You"} (You)`, isCurrentUser: true },
       ...newMembers.map((m, idx) => ({
         id: `m-${Date.now()}-${idx}`,
         name: m.name,
@@ -917,14 +1028,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       spent: 0
     };
     setBudgets(prev => [...prev, newB]);
+    queue({ kind: "budget_create", localId: newB.id, budget: b });
   };
 
   const updateBudget = (id: string, updates: Partial<Budget>) => {
     setBudgets(prev => prev.map(b => (b.id === id ? { ...b, ...updates } : b)));
+    queue({ kind: "budget_update", localId: id, updates });
   };
 
   const deleteBudget = (id: string) => {
     setBudgets(prev => prev.filter(b => b.id !== id));
+    queue({ kind: "budget_update", localId: id, updates: { isArchived: true } as any });
   };
 
   const addGoal = (g: Omit<FinancialGoal, "id" | "createdAt">) => {
@@ -934,9 +1048,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       createdAt: localDateString()
     };
     setGoals(prev => [...prev, newGoal]);
+    queue({ kind: "goal_create", localId: newGoal.id, goal: newGoal });
   };
 
   const updateGoalAmount = (id: string, amountToAdd: number) => {
+    queue({ kind: "goal_contrib", localId: id, amountRupees: amountToAdd });
     setGoals(prev => prev.map(g => {
       if (g.id === id) {
         const updated = g.currentAmount + amountToAdd;
@@ -970,6 +1086,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Cash Wallet
   const adjustCashWallet = (newBalance: number, reason: string) => {
+    // In account mode the count difference is recorded as an audited adjustment entry.
+    const diffPaise = Math.round(normalizeRupees(safeRupees(newBalance)) * 100) - Math.round(safeRupees(cashWallet.currentBalance) * 100);
+    if (diffPaise !== 0) queue({ kind: "tx_adjust", localId: `adj-${Date.now()}`, amountPaise: Math.abs(diffPaise),
+      direction: diffPaise > 0 ? "credit" : "debit" });
     setCashWallet({
       openingBalance: normalizeRupees(safeRupees(newBalance)),
       cashReceived: 0,
@@ -1030,7 +1150,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const deleteAccountData = () => {
-    localStorage.clear();
+    clearActiveProfileStorage();
     setTransactions([]);
     setBudgets([]);
     setGroups([]);
@@ -1238,6 +1358,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const loadSampleData = () => {
+    if (PROFILE.kind === "cloud") return; // never mix demo data into a real account
     setSettingsState(prev => {
       const next = { ...INITIAL_USER_SETTINGS, isDemoMode: true };
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
@@ -1257,6 +1378,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const toggleDemoMode = () => {
+    if (PROFILE.kind === "cloud") return;
     const nextDemo = !settings.isDemoMode;
     if (nextDemo) {
       loadSampleData();
@@ -1308,7 +1430,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const resetToSampleData = () => {
-    localStorage.clear();
+    clearActiveProfileStorage();
     loadSampleData();
   };
 
@@ -1393,7 +1515,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setAppPasscode,
         lockApp,
         unlockApp,
-        exportEncryptedLedger
+        exportEncryptedLedger,
+        cloud,
+        syncNow
       }}
     >
       {children}

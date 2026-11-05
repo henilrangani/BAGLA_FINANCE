@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (Phase 3: React ↔ FastAPI integration), 2026-11-05
+- **Account mode:** sign in/register screen; separate storage profile per account (on-device data never modified); access token in memory, refresh token rotated.
+- **Sync:** pull accounts/transactions/budgets/goals; durable outbox with idempotency keys (`local:<id>`); offline queue; sync on reconnect and when leaving offline mode; status banner (offline / error / session ended).
+- **Migration:** "Move my data to this account". Copies income/expense entries, budgets and goals, verifies totals, safe to re-run, never deletes local data.
+- **Account features screen:** statement import (preview → review → add), family (create, invite code, join, per-entry share/unshare), support tickets + rating, plan (trial / cancel / resume).
+- **Transactions:** new Edit form (validated paise input); delete now asks for confirmation and becomes an audited server void.
+- **Fixes:** dead "Goals" nav item; "delete all data"/reset no longer wipe other profiles; demo data blocked in account mode; server category names mapped to app ids; account holder's name shown (no "Henil" default); removed a hardcoded personal email and personal UPI ID from defaults, sample groups and newly created groups; dashboard coach is now a real rule-based calculation.
+- Tests: frontend 71→88 (mappers, coach, UPI); backend 49.
+
 ## Unreleased (Phase 2 batch 2: imports, family, support, billing), 2026-11-04
 - **Statement imports:** CSV + XLSX (defusedxml-protected), Indian bank header detection, Debit/Credit, Dr/Cr and signed amounts, Indian date formats, keyword categories, duplicate detection against the ledger, preview → commit, idempotent re-import.
 - **Family:** groups, roles (admin/adult/child/viewer), single-use invites, explicit per-entry sharing, removal revokes sharing, last-admin protection.

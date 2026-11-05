@@ -85,7 +85,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
       <div className="flex items-center gap-3">
         <div>
           <h1 className="text-base sm:text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
-            <span>{greeting}, {settings.name}</span>
+            <span>{greeting}{settings.name ? `, ${settings.name.split(" ")[0]}` : ""}</span>
             <span className="text-sm">👋</span>
           </h1>
           <p className="text-[11px] text-gray-500 dark:text-slate-400 font-medium hidden sm:block">

@@ -33,6 +33,8 @@ export const MoreDrawerModal: React.FC<MoreDrawerModalProps> = ({
     { id: "cash", label: "Cash Wallet", desc: "Physical currency tracker", icon: Wallet, color: "text-amber-500" },
     { id: "family", label: "Family Space", desc: "Household shared budgets", icon: Users, color: "text-blue-500" },
     { id: "analytics", label: "Analytics & Health", desc: "Deep financial intelligence", icon: BarChart3, color: "text-teal-500" },
+    { id: "account", label: "Account & Sync", desc: "Sign in, sync, move your data", icon: ShieldCheck, color: "text-emerald-600" },
+    { id: "cloud", label: "Account features", desc: "Import, family sharing, support", icon: Users, color: "text-blue-600" },
     { id: "privacy", label: "Settings & Privacy", desc: "Data isolation & security vault", icon: ShieldCheck, color: "text-emerald-500" },
     { id: "admin", label: "Telemetry & Logs", desc: "Performance & system status", icon: Activity, color: "text-indigo-500" }
   ];

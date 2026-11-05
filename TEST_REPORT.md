@@ -76,3 +76,15 @@ Bugs found and fixed by the new tests:
 | **Backup/restore** (`pg_dump -Fc` → `pg_restore` into a new DB) | ✅ counts, net posted paise (473,500), opening balances, schema version and 57 constraints identical |
 | Frontend tsc / vitest / build / npm audit | ✅ / 75 passed / ✅ / 0 |
 | ruff / pip-audit | ✅ / 0 vulnerabilities |
+
+## 2026-11-05: Phase 3 integration (workspace on D:)
+All runs from `D:\BAGLA_FINANCE_WORKSPACE\main-app`; C: free space unchanged by the run (1,635 MB before/after).
+
+| Check | Result |
+|---|---|
+| Frontend tsc / vitest / build (to `D:\...\builds\dist`) / npm audit | ✅ 0 errors / **88 passed** (10 files) / ✅ / 0 |
+| Backend pytest / ruff / bandit / pip-audit | ✅ 49 passed / clean / no issues / 0 |
+| Browser E2E, FastAPI on **PostgreSQL** (2026-11-05 a.m.) | ✅ register → empty account (no demo data), local data byte-identical; migration 13 entries + 5 budgets + 3 goals with totals matching (₹50,000 / ₹26,499) and PostgreSQL agreeing to the paisa; re-run added 0; live quick-add reached the server; offline entry queued then synced |
+| Browser E2E, FastAPI on **SQLite** (p.m.; Docker unresponsive) | ✅ expired session → "session ended" banner, local data intact; account name shown; edit ₹20→₹25.50 audited (`create`→`update` 2000→2550); delete → `void`, row kept; CSV import 4 rows / 1 flagged / 3 added, re-upload = 3 duplicates, 0 added; family invite (single-use; reuse 400), member sees 0 entries until shared, then only the shared ₹499 with minimal fields, unshared entry by id = 404; support ticket BF-… + rating; trial → cancel keeps access to the end date; coach 96.5% verified against figures; offline→online flush |
+| Bug found by E2E and fixed | import category names ("Food") didn't map to app ids ("cat-food") → coach/categories showed "Other"; fixed in `toCategoryId` + test |
+| PostgreSQL re-verification this session, Playwright suite | ⬜ Docker unresponsive; no automated browser suite yet (E2E was driven manually in the built-in browser) |

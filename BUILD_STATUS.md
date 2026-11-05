@@ -4,6 +4,9 @@ _Last updated: 2026-11-04 · branch `phase-1-security-money`_
 
 ## Overall: NOT READY (see LAUNCH_CHECKLIST.md)
 
+## Phase 3 (2026-11-05)
+React app connected to FastAPI: account mode, sync outbox, non-destructive migration, imports, family sharing, support, plans, transaction edit/void. Browser-verified (PostgreSQL earlier, SQLite later). Frontend 88 tests, backend 49; all scans clean. Docker unresponsive, so PostgreSQL re-verification is pending.
+
 ## Phase 2 batch 2 (2026-11-04)
 Imports, family sharing, support, feedback, plans/trials and admin are implemented and tested (SQLite). Backend 49 tests, frontend 75 tests; ruff, bandit, pip-audit and npm audit clean. Migration 0003 renders. First CI run failed (pytest import path); fixed in this batch and awaiting the next run.
 

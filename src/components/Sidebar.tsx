@@ -15,7 +15,9 @@ import {
   ChevronRight,
   ShieldCheck,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Cloud,
+  UserRound
 } from "lucide-react";
 
 interface SidebarProps {
@@ -37,6 +39,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "ai_assistant", label: "AI Assistant", icon: Sparkles, badge: "AI" },
     { id: "family", label: "Family", icon: Home },
+    { id: "cloud", label: "Account features", icon: Cloud },
+    { id: "account", label: "Account & Sync", icon: UserRound },
     { id: "privacy", label: "Settings", icon: Settings }
   ];
 
@@ -67,6 +71,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
               onClick={() => {
                 if (item.id === "ai_assistant") {
                   setIsAiChatOpen(true);
+                } else if (item.id === "goals") {
+                  setCurrentTab("budgets"); // goals live on the Budgets & Goals screen
                 } else {
                   setCurrentTab(item.id);
                 }
@@ -125,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
           </div>
           <div className="text-left">
             <div className="text-xs font-bold text-gray-900 dark:text-white leading-tight">
-              {settings.name || "Henil Bagla"}
+              {settings.name || "Your profile"}
             </div>
             <div className="text-[10px] text-[#059669] dark:text-emerald-400 font-semibold">
               Premium User

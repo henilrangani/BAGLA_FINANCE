@@ -43,6 +43,7 @@ import { countsTowardTotals, netSpend, spendByCategory, totalIncome } from "../u
 import { normalizeRupees, subtractRupees, sumRupees } from "../utils/money";
 import { computeGroupNetRupees } from "../services/data";
 import type { Transaction } from "../types";
+import { coachInsight } from "../utils/coach";
 
 export const DashboardView: React.FC = () => {
   const {
@@ -287,7 +288,7 @@ export const DashboardView: React.FC = () => {
               <span>Zero Headache Finance</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-              {greeting}, {settings.name || "Henil"}! ☀️
+              {greeting}{settings.name ? `, ${settings.name.split(" ")[0]}` : ""}! ☀️
             </h2>
             <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-normal">
               Every rupee tracked effortlessly. Split trips with friends, monitor your cash flow, and achieve monthly savings without any stress.
@@ -844,15 +845,16 @@ export const DashboardView: React.FC = () => {
                 <h3 className="text-sm font-black text-white">AI Coach</h3>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Active
+                Rule-based
               </span>
             </div>
 
-            <p className="text-xs text-slate-200 leading-relaxed font-medium mt-2">
-              "Your monthly savings rate is at <strong className="text-emerald-300">{savingsPct}%</strong>. You're well on track to meet your Emergency Fund goal!"
+            {/* Calculated from this month's ledger (not AI-generated, no invented claims). */}
+            <p className="text-xs text-slate-200 leading-relaxed font-medium mt-2" role="status">
+              {coachInsight(monthIncome, monthExpense, categoryChartData)}
             </p>
             <p className="text-[11px] text-slate-400 mt-2">
-              Tip: Setting up an auto-debit for recurring bills avoids late fees.
+              Ask the AI assistant for a detailed explanation of your spending.
             </p>
           </div>
 
