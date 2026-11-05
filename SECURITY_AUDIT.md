@@ -48,3 +48,30 @@ Not run: Semgrep, Trivy, OWASP ZAP or other dynamic scanning, Playwright securit
 - Shared (Redis or Postgres) rate limiting before more than one instance ⬜
 - Email verification, password reset and MFA (need an email or SMS provider) ⬜
 - Professional penetration test before public launch ⬜
+
+## 2026-11-05: Phase 4 batch 2 review
+Tools: `bandit -r app` (no findings), `pip-audit -r requirements.txt` (no known vulnerabilities), `npm audit` (0, including dev), `ruff` clean.
+
+**Access control** (each item has a backend test):
+- Family endpoints check active membership and role on the server; ids from another family return 404 (no existence leak).
+- Shared views exclude account ids, notes and provenance.
+- Removal revokes sharing; there's a one-tap privacy reset.
+- Activity returns only allow-listed fields.
+- Group invite codes: 192-bit random, stored as SHA-256, 7-day expiry, single use, admin-only, re-issue cancels the old one. Linked seats can't be re-invited (no takeover).
+- Removing a member revokes access immediately.
+- A group admin's action can't change another member's personal ledger; it's flagged for review instead.
+- `personal_account_id` must belong to the caller and the payer must be the caller.
+
+**Financial integrity:**
+- Group concurrency: a proven race (parallel settlements overpaying on SQLite) was fixed with optimistic versioning plus row locks; repeated or concurrent voids apply once.
+
+**Auth:**
+- `AUTH_RATE_LIMIT` is configurable for local E2E only; config validation refuses values above 20 in staging/production (tested).
+- The client treats refresh 400/401/422 as session ended, so an unusable token isn't retried forever.
+
+**Test data:**
+- E2E accounts are synthetic, generated per test and never written to disk.
+- The earlier local credentials file was deleted after use.
+- `.gitignore` now excludes `test-results/`, `playwright-output/`, `creds*.txt` and `*.e2e.db`.
+
+**Not done:** no external penetration test; no DPDP/RBI compliance review. Refresh token still in localStorage (CSP-mitigated; httpOnly cookie planned).

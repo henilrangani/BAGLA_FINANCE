@@ -37,6 +37,8 @@ class SplitGroup(Base, UUIDMixin, TimestampMixin):
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"),
                                                          nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Optimistic concurrency: every money-changing write bumps this (see routes/splits._bump).
+    version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class SplitMember(Base, UUIDMixin, TimestampMixin):
@@ -75,6 +77,9 @@ class SplitExpense(Base, UUIDMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(16), default="posted")
     created_by_user: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # The payer's own ledger entry mirroring this expense (created server-side, voided with it).
+    personal_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
 
 
 class SplitShare(Base, UUIDMixin):

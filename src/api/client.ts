@@ -61,6 +61,7 @@ function writeSession(s: StoredSession | null) {
 function messageFrom(body: any, status: number): string {
   const d = body?.detail;
   if (typeof d === "string") return d;
+  if (d && typeof d === "object" && typeof d.message === "string") return d.message;
   if (Array.isArray(d) && d[0]?.msg) return `${d[0].loc?.slice(-1)[0] ?? "field"}: ${d[0].msg}`;
   if (status === 429) return "Too many attempts. Please wait a moment and try again.";
   if (status >= 500) return "The server had a problem. Please try again.";
@@ -87,7 +88,9 @@ async function refresh(): Promise<boolean> {
         body: JSON.stringify({ refresh_token: s.refresh_token }),
       });
       if (!r.ok) {
-        if (r.status === 401) {
+        // 401 = expired/revoked; 400/422 = a stored token that can never work. Either way the
+        // session is over (local data is kept); 429/5xx/offline keep it for a later retry.
+        if (r.status === 401 || r.status === 400 || r.status === 422) {
           writeSession(null);
           accessToken = null;
         }

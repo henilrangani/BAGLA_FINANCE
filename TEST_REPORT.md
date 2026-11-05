@@ -113,3 +113,27 @@ All runs from `D:\BAGLA_FINANCE_WORKSPACE\main-app`; C: free space unchanged by 
 - Follow-up: voiding a group expense, browser-verified after adding a confirmation (the delete button deleted on one click and was invisible on touch screens). Server: expense `void`, history kept, balances recomputed.
 - Not browser-verified this batch: archiving a group, the Subscriptions account flow (covered by API tests), migration of device groups (covered by unit tests).
 - Note: the cache clear in step 5 also removed group caches of older test profiles in the built-in browser (localhost test data only).
+
+## 2026-11-05: Phase 4 batch 2 (group integrity, invitations, Family Space, E2E)
+- Backend: **68 passed** on SQLite, `ruff` clean, `bandit` no findings, `pip-audit` no known vulnerabilities. New tests:
+  - `test_split_integrity.py` (7): void after settlement needs confirmation and keeps history; zero-sum exact balances; personal entry voided once; repeat void is a no-op; concurrent voids apply once; concurrent settlements can't overpay (3 parallel → 1 created, 2 refused); permissions (member can't void others', can't mirror into someone else's account, admin void flags the payer's entry); edit updates the mirror; a refund blocks void and edit; invite codes expire, replace each other, are single-use and admin-only, with no takeover of linked seats and access revoked on removal.
+  - `test_family_space.py` (4): only shared entries count (exact paise; private entries absent from the payload); budgets incl. overspend; goals and contributions with roles and idempotency; one family can't reach another's summary/activity/goals/budgets/unshare; a removed member loses access.
+  - `test_config_limits.py` (1): `AUTH_RATE_LIMIT` can't be loosened in staging/production.
+- The concurrency tests initially **failed** (two of three parallel settlements were accepted on SQLite; a second void raised an error). Fixed with the group version check (DECISIONS D11). Then 8 consecutive green runs.
+- Migrations: base→head renders for PostgreSQL (28 tables), head→base drops all; 0005 and 0006 render both ways. Not run on a live PostgreSQL locally (Docker unresponsive); the CI backend job runs up/down/up on PostgreSQL.
+- Frontend: **97 passed**, `tsc` clean, build OK, `npm audit` 0 vulnerabilities.
+- **Automated browser suite (Playwright 1.64.1, Chromium):** `npm run e2e` starts the real FastAPI (fresh SQLite DB, random secret) and Vite; synthetic accounts are generated per test and kept in memory only. **12/12 passed** (56.6 s):
+  1. Registration, reload persistence, sign-in on a fresh browser profile.
+  2. Wrong password refused.
+  3. Transaction create → edit → void, checked on the server in paise (25075 → 30010 → void kept).
+  4. Budgets and goals saved and kept after reload.
+  5. Statement import: preview, add 3, re-upload shows 3 duplicates and "Add 0" disabled.
+  6. Groups, two accounts: group from the empty state, no invented UPI IDs, ₹100 → 3333/3334/3333, personal entry, invite code, invalid-code message, join, single-use code, settlement from the other account, void with the payback explanation, settlement kept, personal entry voided, removal refused while owed.
+  7. Family, two accounts: create, invite (adult), join, explicit share, private entry absent in the UI and the API, direct read refused (404), budget overspend, goal with per-member contributions, privacy reset, activity.
+  8. Recurring: weekly bill, ₹520/month, mark paid exactly once (a repeat API call adds nothing), skip, edit amount, pause/resume, cancel with confirmation.
+  9. Support request and plan screen ("Paid plans aren't available yet"; no prices).
+  10. Offline: queued while offline, synced exactly once on reconnect.
+  11. Expired session: "session ended" banner, local change kept, synced after signing in again.
+  12. Mobile (Pixel 7): bottom bar and More drawer navigation; no horizontal scroll.
+- Bugs the suite found (fixed): Goals nav opened Budgets; "₹8,000.5" formatting; 86 px header overflow on phones; expired session shown as a generic sync error; refresh 422 retried forever; unlabelled add-expense fields; the member-card "Settle" and edit-form flows needed stable markup.
+- **PostgreSQL browser verification: pending locally.** The new CI `e2e` job runs the same suite on PostgreSQL 16; see that run's result.

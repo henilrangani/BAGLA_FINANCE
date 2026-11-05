@@ -61,6 +61,8 @@ export interface Transaction {
   accountId?: string;
   receiptData?: ReceiptData;
   groupId?: string;
+  /** Set when this entry mirrors a group expense you paid (removed with it). */
+  groupExpenseId?: string;
   isFamilyShared?: boolean;
   isRecurring?: boolean;
   status: "verified" | "pending_review" | "duplicate_flagged" | "soft_deleted";
@@ -112,6 +114,10 @@ export interface GroupMember {
   isCurrentUser?: boolean;
   upiId?: string;
   phone?: string;
+  /** Account groups only. */
+  role?: "admin" | "member";
+  /** Account groups only: the seat is linked to a Bagla account (the person has joined). */
+  linked?: boolean;
 }
 
 export type SplitType = "equal" | "percentage" | "exact" | "itemized";
@@ -167,6 +173,10 @@ export interface Group {
   inviteCode: string;
   createdAt: string;
   archived?: boolean;
+  /** Account groups only: my role in this group. */
+  myRole?: "admin" | "member";
+  /** Account groups only: people removed from the group (kept so old entries still show a name). */
+  formerMembers?: GroupMember[];
 }
 
 export interface FamilyMember {

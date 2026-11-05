@@ -12,7 +12,7 @@ vi.mock("./client", () => ({
   ApiError: class extends Error {},
 }));
 
-import { addRemoteExpense, fromServerGroup } from "./groups";
+import { addRemoteExpense, describeVoid, fromServerGroup } from "./groups";
 import { migrateGroups, type MigrationReport } from "./sync";
 
 const detail = {
@@ -106,5 +106,39 @@ describe("migrateGroups", () => {
     await migrateGroups([local], r);
     expect(r.groups).toEqual({ created: 0, alreadyThere: 1 });
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("describeVoid", () => {
+  const names: Record<string, string> = { a: "Asha", r: "Ravi" };
+  const base = { can_void: true, status: "posted", amount_paise: 10000, recorded_settlements: 0, balance_flips: [],
+    suggested_after: [], personal_entry: null, blocker: null };
+  it("explains payback when recorded payments flip balances", () => {
+    const text = describeVoid("Dinner", { ...base, recorded_settlements: 1,
+      balance_flips: [{ member_id: "a", before_paise: 3333, after_paise: -3333 }],
+      suggested_after: [{ from_member_id: "a", to_member_id: "r", amount_paise: 3333 }],
+      personal_entry: "will_void" }, id => names[id]);
+    expect(text).toContain("Delete \"Dinner\" (₹100");
+    expect(text).toContain("1 payment(s) already recorded");
+    expect(text).toContain("Asha will need to pay back Ravi ₹33.33");
+    expect(text).toContain("entry in your own transactions will be removed");
+  });
+  it("stays short when nothing flips", () => {
+    const text = describeVoid("Cab", base, id => names[id]);
+    expect(text).not.toContain("pay back");
+    expect(text.split("\n")).toHaveLength(2);
+  });
+});
+
+describe("addRemoteExpense personal entry", () => {
+  beforeEach(() => { calls.length = 0; responses = []; });
+  it("passes my account only when given", async () => {
+    const e = { description: "Fuel", currency: "INR", categoryId: "cat-transport", paidByMemberId: "me",
+      date: "2026-11-03", time: "10:00", splitType: "equal" as const, amount: 50, participants: [] };
+    await addRemoteExpense("g1", e, "ge:3", "acc-bank");
+    await addRemoteExpense("g1", e, "ge:4");
+    expect(calls[0].body.personal_account_id).toBe("acc-bank");
+    expect(calls[1].body.personal_account_id).toBeUndefined();
+    expect(calls[1].body.participant_ids).toBeUndefined();
   });
 });

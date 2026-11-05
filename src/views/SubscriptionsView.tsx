@@ -7,12 +7,7 @@ import { formatINR, fromPaise, parseRupeeInput, toPaise } from "../utils/money";
 import { localDateString } from "../utils/dates";
 
 type Freq = "weekly" | "monthly" | "quarterly" | "yearly";
-const PER_MONTH: Record<string, number> = { daily: 365 / 12, weekly: 52 / 12, monthly: 1, quarterly: 1 / 3, yearly: 1 / 12 };
-
-/** Exact-paise monthly equivalent (rounded to the paisa once, at the end). */
-function monthlyPaise(items: { amountPaise: number; frequency: string }[]): number {
-  return Math.round(items.reduce((s, i) => s + i.amountPaise * (PER_MONTH[i.frequency] ?? 1), 0));
-}
+import { monthlyPaise } from "../utils/recurring";
 
 const card = "p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs space-y-4";
 const input = "w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 font-medium outline-none focus:ring-2 focus:ring-indigo-500";
@@ -144,6 +139,7 @@ function LocalBills() {
 function AccountBills() {
   const { syncNow } = useFinance();
   const [bills, setBills] = useState<any[] | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; amount: string } | null>(null);
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -205,6 +201,26 @@ function AccountBills() {
                 {b.overdue_dates.length > 3 && <p className="text-[11px] text-amber-800">+{b.overdue_dates.length - 3} more overdue</p>}
               </div>
             )}
+            {editing?.id === b.id && (
+              <form className="space-y-2" aria-label={`Edit ${b.name}`} onSubmit={e => {
+                e.preventDefault();
+                const parsed = parseRupeeInput(editing.amount);
+                if (!editing.name.trim()) { setError("Enter a name."); return; }
+                if (parsed.ok === false || parsed.rupees <= 0) { setError(parsed.ok === false ? parsed.error : "Enter an amount greater than zero."); return; }
+                act(`${b.id}:e`, async () => {
+                  await api("PATCH", `/api/v1/recurring/${b.id}`, { name: editing.name.trim(), amount_paise: toPaise(parsed.rupees) });
+                  setEditing(null);
+                });
+              }}>
+                <input className={input} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} aria-label="Bill name" maxLength={120} />
+                <input className={input} value={editing.amount} onChange={e => setEditing({ ...editing, amount: e.target.value })} aria-label="Bill amount in rupees" inputMode="decimal" />
+                <p className="text-[10px] text-gray-500">New amount applies to payments you mark from now on.</p>
+                <div className="flex gap-2">
+                  <button type="submit" disabled={busy !== null} className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer">Save</button>
+                  <button type="button" onClick={() => setEditing(null)} className="px-3 py-1.5 text-xs cursor-pointer">Cancel</button>
+                </div>
+              </form>
+            )}
             <div className="pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs">
               <span className="text-gray-500">Next due: <strong className="text-gray-800 dark:text-slate-200">{b.next_due_date || "—"}</strong>
                 {b.history.length > 0 && <span className="ml-2 text-emerald-700 inline-flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" />{b.history.filter((h: any) => h.status === "paid").length} paid</span>}</span>
@@ -212,8 +228,15 @@ function AccountBills() {
                 <button aria-label={b.status === "active" ? `Pause ${b.name}` : `Resume ${b.name}`} disabled={busy !== null}
                   onClick={() => act(`${b.id}:p`, () => api("PATCH", `/api/v1/recurring/${b.id}`, { status: b.status === "active" ? "paused" : "active" }))}
                   className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer">{b.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}</button>
+                <button aria-label={`Edit ${b.name}`} disabled={busy !== null}
+                  onClick={() => setEditing({ id: b.id, name: b.name, amount: String(fromPaise(b.amount_paise)) })}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer text-[11px] font-bold">Edit</button>
                 <button aria-label={`Cancel ${b.name}`} disabled={busy !== null}
-                  onClick={() => act(`${b.id}:c`, () => api("PATCH", `/api/v1/recurring/${b.id}`, { status: "cancelled" }))}
+                  onClick={() => {
+                    if (window.confirm(`Cancel "${b.name}"? It stops appearing as due. Payments already recorded stay in your transactions.`)) {
+                      act(`${b.id}:c`, () => api("PATCH", `/api/v1/recurring/${b.id}`, { status: "cancelled" }));
+                    }
+                  }}
                   className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>

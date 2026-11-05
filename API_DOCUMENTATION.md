@@ -72,6 +72,21 @@ All amounts are integer paise. Non-members get 404; admin-only actions by member
 - Settlements: `POST /groups/{id}/settlements` `{from_member_id, to_member_id, amount_paise, method, note?, idempotency_key?}`, capped at min(what `from` owes, what `to` is owed), otherwise 409; `DELETE …/settlements/{sid}` voids.
 - Every write returns the group detail: members with `net_paise`, expenses with shares, settlements, `total_spend_paise`, `suggested_settlements`.
 
+### Group integrity (2026-11-05 batch 2)
+- `POST /groups/{id}/expenses` also takes `personal_account_id` (my own account; payer must be me). The server then writes my matching personal expense once and links it (`has_personal_entry` in the detail).
+- `GET /groups/{id}/expenses/{eid}/void-preview` → `{can_void, balances[{member_id, before_paise, after_paise}], balance_flips, recorded_settlements, suggested_after, personal_entry: "will_void"|"will_flag_for_payer"|null, blocker}`.
+- `DELETE /groups/{id}/expenses/{eid}?confirm_balance_change=true`: required when the void flips anyone's balance sign; otherwise 409 `{"detail": {"code": "balance_change_needs_confirmation", "message", "balance_flips"}}`. Repeating a void is a no-op (200).
+- Money-changing writes can return 409 "Someone changed this group at the same moment" (optimistic concurrency); retry after refreshing.
+
+## Family Space (`/families/{id}/…`, 2026-11-05 batch 2)
+Active members only (others get 404). Roles: admin/adult manage budgets and goals; admin/adult/child contribute; viewers read.
+- `GET /summary?month=YYYY-MM` → `{family, period, shared_spend_paise, by_member[], by_category[], budgets[{limit_paise, spent_paise, remaining_paise, over}], goals[{target_paise, saved_paise, remaining_paise, by_member[], contributions[]}], my_shared_entries}`. Only entries shared with this family (posted, by active members) count.
+- `POST /budgets {name, category?, limit_paise}` · `PATCH /budgets/{bid} {name?, category?, limit_paise?, is_archived?}`.
+- `POST /goals {name, target_paise, target_date?}` · `PATCH /goals/{gid} {…, status: active|completed|archived}`.
+- `POST /goals/{gid}/contributions {amount_paise, note?, contributed_on?, idempotency_key?}` (active goals only) · `DELETE /goals/{gid}/contributions/{cid}` (own, or admin) voids.
+- `POST /unshare-mine` makes all my entries in this family private → `{unshared: n}`.
+- `GET /activity`: last 50 family events (actor name, label, safe details only).
+
 ## Recurring bills (`/recurring`)
 - `GET /recurring` (excludes cancelled) · `POST /recurring` `{name, amount_paise, frequency, start_date, end_date?, category?, account_id?, remind_days_before?}` · `PATCH /recurring/{id}` (status active/paused/cancelled; a cancelled bill can't change: 409).
 - `GET /recurring/due?within_days=N`: overdue and upcoming occurrences.

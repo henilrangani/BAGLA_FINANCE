@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased (Phase 4 batch 2: group integrity, invitations, Family Space, automated E2E), 2026-11-05
+- **Group expense integrity:**
+  - Voiding never touches recorded settlements (real money that changed hands).
+  - A void that would flip someone from owing to being owed is refused until confirmed (`confirm_balance_change`).
+  - `GET …/void-preview` explains the effect first, and the app's confirmation shows who must pay whom back.
+  - The payer's personal "Group: …" entry is now created by the server (key `gexp:<expense>`), linked to the expense, and voided or updated with it. When someone else voids or edits it, the payer's entry is flagged for review instead of changed.
+  - A refunded or reversed personal entry blocks the void.
+  - Concurrency: group row lock (PostgreSQL) plus an optimistic group `version`, which also holds where row locks aren't available, and a conditional void. Concurrent settlements can't overpay; concurrent voids apply once.
+- **Group invitations UI:**
+  - "Invite to join" issues a one-time 7-day code per named seat, with copy and WhatsApp share.
+  - "Join with a code" handles invalid, used and expired codes with clear messages, and "Already a member".
+  - Members show Admin/Joined/"Not joined yet" status.
+  - Add member (validated UPI ID, never invented), remove, and leave, refused while a balance is open.
+- **Family Space** (server-backed; migration 0006):
+  - Shared monthly budgets (one category or all shared spending) and shared goals with per-member contributions.
+  - Summary per month: shared total, by member, by category.
+  - Activity feed (safe fields only) and a one-tap "make all my shared entries private".
+  - Role checks on every endpoint (admin/adult manage, child contributes, viewer reads), and cross-family isolation.
+  - The account-mode screen has loading, empty, error/retry and success states. The device-mode screen lost its hardcoded figures (₹12,400 / ₹3,850 / ₹1,500), a fake "Active Sync" badge and a "Send Invite" button that did nothing.
+- **Recurring bills:** edit name and amount; cancel asks first; `monthlyPaise` moved to `src/utils/recurring.ts` with tests.
+- **Automated browser suite:** Playwright 1.64.1, 12 journeys against the real app and FastAPI (`npm run e2e`), plus a CI `e2e` job on PostgreSQL.
+- **Fixes found by the suite:**
+  - The sidebar "Goals" item opened the Budgets tab.
+  - Budget and goal amounts showed "₹8,000.5".
+  - Phone-width header overflowed by 86 px.
+  - An expired session showed "Sync problem: Not signed in" instead of "session ended". The client now also ends the session when refresh returns 400/422.
+  - Add-expense fields had no accessible names.
+  - The structured 409 error message was lost in the client.
+- **Config:** `AUTH_RATE_LIMIT` (default 20). Staging and production refuse values above 20, so it can't be loosened there.
+- Migrations 0005 (expense↔ledger link, group version) and 0006 (family budgets/goals/contributions), both additive. Tests: backend 56 → 68, frontend 92 → 97, E2E 0 → 12.
+
 ## Unreleased (Phase 4 batch 1: server-backed group splits and recurring bills), 2026-11-05
 - **Group splits on the server** (`/api/v1/groups`): groups, members (admin/member), one-time seat invites + claim, expenses with equal (largest-remainder, paise-exact) or exact splits, edit/void, settlements capped at what is owed, idempotency keys on every write, balances and minimum-transfer suggestions computed server-side. Account deletion unlinks the user and keeps the group's history for the others.
 - **Recurring bills on the server** (`/api/v1/recurring`): daily/weekly/monthly/quarterly/yearly with month-end clamping, overdue and due-soon lists, "mark paid" posts one ledger expense per occurrence (idempotent, never double-posts), skip, pause/resume, cancel.

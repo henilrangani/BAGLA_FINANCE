@@ -157,7 +157,10 @@ function MainApp() {
           {currentTab === "transactions" && <TransactionsView />}
           {currentTab === "groups" && <GroupsView />}
           {currentTab === "family" && <FamilyView />}
-          {currentTab === "budgets" && <BudgetsGoalsView />}
+          {(currentTab === "budgets" || currentTab === "goals") && (
+            // Same screen; the sidebar's "Goals" opens it on the Goals tab.
+            <BudgetsGoalsView key={currentTab} initialSubTab={currentTab === "goals" ? "goals" : "budgets"} />
+          )}
           {currentTab === "subscriptions" && <SubscriptionsView />}
           {currentTab === "cash" && <CashWalletView />}
           {currentTab === "analytics" && <AnalyticsView />}

@@ -68,3 +68,20 @@ Admin routes return 404 to non-staff.
 
 ### D16. AI stays in the Node layer for now
 It's already hardened (Phase 1). The FastAPI backend owns the ledger; AI output only ever becomes `needs_review` suggestions.
+
+## 2026-11-05: Phase 4 batch 2
+
+### D9. Voiding a group expense never rewrites payment history
+A settlement records that money really changed hands, so voiding an expense leaves settlements as they are. Balances are recomputed from posted expenses plus recorded settlements. If someone already paid back their share, they're now owed that money and the suggestions say so.
+- Because this can surprise people, the server refuses such a void until the caller confirms (`confirm_balance_change=true`), and `void-preview` gives the app the before/after balances to explain it.
+- A settlement that never actually happened is undone separately (voided, kept in history).
+- **Why:** automatically cancelling settlements would erase real payments, or guess which expense a payment was for. Settlements pay off net balances, not single expenses.
+
+### D10. The payer's personal ledger entry is created and kept in step by the server
+When you pay for a group expense, the server writes the matching personal expense in the same request (idempotency key `gexp:<expense id>`), links it, and voids or updates it with the expense. If another member (an admin) voids or edits it, the payer's entry is only flagged `needs_review`.
+- If the personal entry has a refund or reversal, the void or edit is refused, so the two ledgers never disagree silently.
+- **Why:** the app used to write the personal entry separately, so a void or edit left it behind.
+
+### D11. Optimistic concurrency for group money
+Every money-changing group write bumps `split_groups.version`, and the write fails with 409 if another write landed first. A void is also a conditional `UPDATE … WHERE status='posted'`. PostgreSQL additionally takes a row lock.
+- **Why:** the "settle at most what is owed" check and single application of a void must hold even without row locks (SQLite in development and tests). A concurrency test proved overpayment was possible before.

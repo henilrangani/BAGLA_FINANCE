@@ -72,3 +72,51 @@ jobs:
         run: |
           export JWT_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
           alembic check
+
+  e2e:
+    # Browser suite (Playwright) against the real app + FastAPI on PostgreSQL, synthetic accounts only.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bagla_e2e
+          POSTGRES_USER: bagla
+          POSTGRES_PASSWORD: ci_only_password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U bagla -d bagla_e2e"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgresql+asyncpg://bagla:ci_only_password@localhost:5432/bagla_e2e
+      E2E_PYTHON: python
+      E2E_OUTPUT: playwright-output
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: npm ci
+      - run: pip install -r backend/requirements.txt
+      - name: Create the E2E database schema (migrations)
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.E2E_DATABASE_URL }}
+        run: |
+          export JWT_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
+          alembic upgrade head
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-output
+          path: playwright-output
+          retention-days: 7

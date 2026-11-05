@@ -9,6 +9,9 @@ _WEAK_SECRETS = {"", "change-me", "changeme", "secret", "replace-me", "dev-secre
 class Settings(BaseSettings):
     app_name: str = "Bagla Finance API"
     environment: str = "development"  # development | test | staging | production
+    # Auth attempts (register/login/refresh/change-password) per IP per 15 minutes. Local E2E runs
+    # may raise it; staging/production refuse anything looser than the default (see validator).
+    auth_rate_limit: int = 20
     database_url: str = "postgresql+asyncpg://bagla:bagla@localhost:5432/bagla_finance"
     jwt_secret: str
     jwt_algorithm: str = "HS256"
@@ -27,6 +30,12 @@ class Settings(BaseSettings):
         if v != "HS256":
             raise ValueError("only HS256 is supported")
         return v
+
+    @model_validator(mode="after")
+    def safe_rate_limit(self):
+        if self.auth_rate_limit < 1 or (self.is_production and self.auth_rate_limit > 20):
+            raise ValueError("AUTH_RATE_LIMIT must be 1-20 in staging/production")
+        return self
 
     @model_validator(mode="after")
     def strong_secret(self):

@@ -1,8 +1,17 @@
 # Build Status
 
-_Last updated: 2026-11-04 · branch `phase-1-security-money`_
+_Last updated: 2026-11-05 · branch `phase-1-security-money`_
 
 ## Overall: NOT READY (see LAUNCH_CHECKLIST.md)
+
+## Phase 4 batch 2 (2026-11-05)
+Group expense integrity (void preview and confirmation, server-side personal entry, optimistic concurrency), group invitation UI, server-backed Family Space (budgets, goals, contributions, activity, privacy reset), recurring-bill edit, and an automated Playwright suite (12 journeys) with a CI job on PostgreSQL.
+- Backend 68 tests, frontend 97, E2E 12/12 (SQLite).
+- ruff, bandit, pip-audit and npm audit clean; migrations 0005–0006 render.
+- Local PostgreSQL still blocked (Docker). See RELEASE_READINESS.md.
+
+## Phase 4 batch 1 (2026-11-05)
+Server-backed group splits and recurring bills (migration 0004); CI green on f09c373 and 6069f75.
 
 ## Phase 3 (2026-11-05)
 React app connected to FastAPI: account mode, sync outbox, non-destructive migration, imports, family sharing, support, plans, transaction edit/void. Browser-verified (PostgreSQL earlier, SQLite later). Frontend 88 tests, backend 49; all scans clean. Docker unresponsive, so PostgreSQL re-verification is pending.

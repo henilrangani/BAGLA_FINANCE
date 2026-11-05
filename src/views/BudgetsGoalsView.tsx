@@ -1,3 +1,4 @@
+import { formatINR } from "../utils/money";
 import React, { useState } from "react";
 import { useFinance } from "../context/FinanceContext";
 import {
@@ -19,7 +20,7 @@ import { localDateString, localMonthPrefix } from "../utils/dates";
 import { countsTowardTotals, netSpend } from "../utils/ledger";
 import { normalizeRupees, parseRupeeInput } from "../utils/money";
 
-export const BudgetsGoalsView: React.FC = () => {
+export const BudgetsGoalsView: React.FC<{ initialSubTab?: "budgets" | "simulator" | "goals" }> = ({ initialSubTab = "budgets" }) => {
   const {
     budgets,
     goals,
@@ -31,7 +32,7 @@ export const BudgetsGoalsView: React.FC = () => {
     settings
   } = useFinance();
 
-  const [activeSubTab, setActiveSubTab] = useState<"budgets" | "simulator" | "goals">("budgets");
+  const [activeSubTab, setActiveSubTab] = useState<"budgets" | "simulator" | "goals">(initialSubTab);
   const [isNewBudgetOpen, setIsNewBudgetOpen] = useState(false);
   const [isNewGoalOpen, setIsNewGoalOpen] = useState(false);
 
@@ -213,8 +214,8 @@ export const BudgetsGoalsView: React.FC = () => {
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs font-bold">
-                      <span className="text-gray-500">Spent: ₹{spent.toLocaleString("en-IN")}</span>
-                      <span className="text-gray-900 dark:text-white">Cap: ₹{b.amount.toLocaleString("en-IN")}</span>
+                      <span className="text-gray-500">Spent: {formatINR(spent)}</span>
+                      <span className="text-gray-900 dark:text-white">Cap: {formatINR(b.amount)}</span>
                     </div>
 
                     <div className="w-full bg-[#F2F4F7] dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
@@ -230,7 +231,7 @@ export const BudgetsGoalsView: React.FC = () => {
                   <div className="pt-3 border-t border-gray-100 dark:border-slate-800 flex justify-between text-[11px] text-gray-500 font-semibold">
                     <span className="capitalize">{b.period}</span>
                     <span className="text-gray-800 dark:text-slate-200 font-bold">
-                      Remaining: ₹{Math.max(0, b.amount - spent).toLocaleString("en-IN")}
+                      Remaining: {formatINR(Math.max(0, b.amount - spent))}
                     </span>
                   </div>
                 </div>
@@ -296,7 +297,7 @@ export const BudgetsGoalsView: React.FC = () => {
                 Monthly Extra Saved
               </span>
               <span className="text-3xl font-black text-indigo-600 dark:text-indigo-400 block tracking-tight">
-                ₹{potentialMonthlySavings.toLocaleString("en-IN")}
+                {formatINR(potentialMonthlySavings)}
               </span>
               <span className="text-[11px] text-gray-500">Every single month added to your bank</span>
             </div>
@@ -306,7 +307,7 @@ export const BudgetsGoalsView: React.FC = () => {
                 1-Year Compounded Impact
               </span>
               <span className="text-3xl font-black text-white block tracking-tight">
-                ₹{potentialAnnualSavings.toLocaleString("en-IN")}
+                {formatINR(potentialAnnualSavings)}
               </span>
               <span className="text-[11px] text-slate-400">Can fully fund your next vacation or investment</span>
             </div>
@@ -348,8 +349,8 @@ export const BudgetsGoalsView: React.FC = () => {
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs font-bold">
-                      <span className="text-gray-500">Saved: ₹{g.currentAmount.toLocaleString("en-IN")}</span>
-                      <span className="text-gray-900 dark:text-white">Target: ₹{g.targetAmount.toLocaleString("en-IN")}</span>
+                      <span className="text-gray-500">Saved: {formatINR(g.currentAmount)}</span>
+                      <span className="text-gray-900 dark:text-white">Target: {formatINR(g.targetAmount)}</span>
                     </div>
 
                     <div className="w-full bg-[#F2F4F7] dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">

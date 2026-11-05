@@ -49,13 +49,23 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - In account mode, the family space screen and the cash-wallet denomination register remain device-only. Server-backed family sharing lives on the "Account features" screen. (Group splits and recurring bills are server-backed since 2026-11-05.)
 - Local transfers/refunds can't be synced from the app screens yet (the mapper refuses them rather than guessing); migration reports them as "not supported yet".
 - Payment method is inferred from the server account on pull (cash account → cash, others → bank/UPI), so a local "credit card" label may come back as "bank transfer".
-- Browser E2E was run manually in the built-in browser; there's no automated Playwright suite yet.
+- The automated Playwright suite (12 journeys) runs locally on SQLite; the CI `e2e` job runs it on PostgreSQL. It covers Chromium only (desktop plus a Pixel 7 profile); no Firefox/Safari runs.
 - The account-mode UI hasn't been re-verified against PostgreSQL since Docker became unresponsive (verified on PostgreSQL earlier on 2026-11-05, and on SQLite afterwards).
 
 ## Group splits and recurring bills (2026-11-05)
 - Group changes need a connection. They are not queued offline: the data is shared, and a stale offline write could conflict with other members. A failed change shows "Group change not saved" and the screen reloads the server's view.
-- The Groups screen has no UI yet for seat invites/claims (the API supports them), editing an expense (void only), editing members or UPI IDs, or recording a partial settlement. **Until invites have a UI, an account group is visible only to its creator.**
+- The Groups screen can't yet edit an expense (void and re-add), edit a member's name or UPI ID after creation, or record a partial settlement from the UI (the API supports all three).
+- Invite codes are shared by the admin themselves (copy or WhatsApp); no email or SMS is sent.
 - Migration matches groups and bills by name: a device group whose name already exists in the account is not uploaded (reported as "already there"). Migrated bills start at their next due date and charge the account's cash account when marked paid.
-- Deleting (voiding) a group expense keeps recorded settlements, so money already paid back shows up as owed in reverse; the confirmation doesn't warn about this yet. The personal "Group: …" ledger entry created when you paid is not voided with it.
+- Voiding a group expense keeps recorded settlements by design (DECISIONS D9): if money was already paid back, the app explains who must now pay whom back and asks for confirmation. A recorded settlement that never really happened has to be undone separately (API only; no UI button yet).
+- The personal "Group: …" entry records the **full** amount you paid, not your share; money paid back to you isn't recorded as income automatically. Group expenses added before 2026-11-05 batch 2 have no linked personal entry.
 - Recurring "mark paid" needs a linked account. No push/email reminder is sent yet (`reminder_due` is computed but nothing delivers it).
 - `alembic upgrade` fails on SQLite (async driver, MissingGreenlet). Dev/E2E SQLite databases are created from the models; PostgreSQL migrations run in CI.
+
+## Family Space (2026-11-05 batch 2)
+- Goal contributions are records ("I set this aside"); they don't move money or create ledger entries, and nobody verifies them.
+- Budgets are monthly only and measure entries their owners shared; private spending is never counted, so a family budget shows only what was shared.
+- The "What I share" list shows your 20 most recent expenses; older entries are shared from the Transactions history via the API only.
+- No notifications when someone joins, shares or contributes (the activity feed shows it).
+- The device-only Family screen can't invite anyone; inviting needs an account.
+- Optimistic concurrency on groups: two people saving at the same instant gets one "Someone changed this group…, try again" message.

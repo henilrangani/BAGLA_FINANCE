@@ -11,6 +11,7 @@ from .extra import (
     SupportTicket,
     UserSubscription,
 )
+from .family_finance import FamilyBudget, FamilyGoal, FamilyGoalContribution
 from .groups import (
     RecurringBill,
     RecurringOccurrence,
@@ -25,6 +26,7 @@ from .planning import Budget, GoalContribution, SavingsGoal
 from .user import AuthSession, User
 
 __all__ = [
+    "FamilyBudget", "FamilyGoal", "FamilyGoalContribution",
     "Base", "User", "AuthSession", "FinancialAccount", "Transaction", "AuditEvent", "Budget",
     "SavingsGoal", "GoalContribution", "ImportBatch", "ImportRow", "FamilyGroup", "FamilyMember",
     "FamilyInvite", "SupportTicket", "Feedback", "Plan", "UserSubscription", "BillingEvent",

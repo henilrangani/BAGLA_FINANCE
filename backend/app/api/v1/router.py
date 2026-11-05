@@ -1,6 +1,19 @@
 from fastapi import APIRouter
 
-from .routes import accounts, auth, business, family, imports, planning, recurring, reports, splits, transactions, users
+from .routes import (
+    accounts,
+    auth,
+    business,
+    family,
+    family_finance,
+    imports,
+    planning,
+    recurring,
+    reports,
+    splits,
+    transactions,
+    users,
+)
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -12,6 +25,7 @@ api_router.include_router(planning.budgets, prefix="/budgets", tags=["budgets"])
 api_router.include_router(planning.goals, prefix="/goals", tags=["goals"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(family.router, prefix="/families", tags=["family"])
+api_router.include_router(family_finance.router, prefix="/families", tags=["family"])
 api_router.include_router(business.support, prefix="/support", tags=["support"])
 api_router.include_router(business.feedback, prefix="/feedback", tags=["feedback"])
 api_router.include_router(business.billing, prefix="/billing", tags=["billing"])

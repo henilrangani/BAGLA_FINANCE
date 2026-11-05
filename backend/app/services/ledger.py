@@ -166,6 +166,11 @@ async def _is_reversed(db: AsyncSession, tx_id: uuid.UUID) -> bool:
     ))
 
 
+# Public names for other services (group expense mirrors).
+is_reversed = _is_reversed
+refunded_total = _refunded_total
+
+
 # --------------------------------------------------------------------------- create
 
 async def create_transaction(db: AsyncSession, user: User, data: TransactionCreate) -> tuple[Transaction, bool]:

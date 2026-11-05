@@ -187,6 +187,12 @@ async def share(tx_id: UUID, payload: ShareRequest, user: User = Depends(get_cur
         require(await membership(db, payload.family_id, user.id), "admin", "adult", "child")
     before = tx.shared_family_id
     tx.shared_family_id = payload.family_id
+    # Family activity: what was shared is visible to the family anyway; un-sharing logs no details.
+    if payload.family_id and payload.family_id != before:
+        audit(db, user.id, "family", payload.family_id, "entry_shared", None,
+              {"description": tx.description, "amount_paise": tx.amount_paise})
+    if before and before != payload.family_id:
+        audit(db, user.id, "family", before, "entry_unshared", None, None)
     audit(db, user.id, "transaction", tx.id, "share" if payload.family_id else "unshare",
           {"shared_family_id": str(before) if before else None},
           {"shared_family_id": str(payload.family_id) if payload.family_id else None})

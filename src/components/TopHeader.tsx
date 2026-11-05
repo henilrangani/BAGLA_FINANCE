@@ -132,11 +132,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
       </div>
 
       {/* Right: Controls & CTAs */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Live Auto-Sync UPI Hub Button */}
         <button
           onClick={() => setIsLiveSyncModalOpen(true)}
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors shadow-xs cursor-pointer"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors shadow-xs cursor-pointer"
           title="Payment sync demo (simulated — no bank or UPI app is connected)"
         >
           <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
@@ -146,7 +146,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
         {/* 10 PM Nightly Cash Logger Button */}
         <button
           onClick={() => setIsNightlyCashModalOpen(true)}
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80 rounded-xl hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors shadow-xs cursor-pointer"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80 rounded-xl hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors shadow-xs cursor-pointer"
           title="10:00 PM Nightly Cash Spend Checker"
         >
           <Coins className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />

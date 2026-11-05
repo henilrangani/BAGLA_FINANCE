@@ -44,6 +44,16 @@ Money columns are `BIGINT` minor units (paise for INR). Timestamps are `TIMESTAM
 - Group balance per member = Σ paid − Σ own shares + Σ settlements sent − Σ settlements received (posted/recorded rows only). Balances always sum to 0.
 - Downgrade drops the 7 tables.
 
+## Migration 0005: group integrity (additive)
+- `split_expenses.personal_transaction_id` (nullable FK → `transactions.id`, SET NULL): the payer's mirrored personal entry.
+- `split_groups.version` (int, default 0): optimistic-concurrency counter bumped by every money-changing write.
+
+## Migration 0006: Family Space (additive)
+- `family_budgets` (family, name, category nullable = all shared spending, `limit_paise` > 0 per month, `created_by` SET NULL, `is_archived`).
+- `family_goals` (family, name, `target_paise` > 0, `target_date`, status active|completed|archived).
+- `family_goal_contributions` (goal, `user_id` SET NULL so history survives account deletion, `amount_paise` > 0, note, `contributed_on`, status recorded|void, unique `(goal_id, idempotency_key)`).
+- Spending figures are never stored: they're computed from `transactions.shared_family_id`.
+
 ## Browser data migration (planned, Phase 3)
 1. The user signs in, then chooses "Move my data to my account".
 2. The app exports its `localStorage` ledger as JSON and keeps the local copy unchanged.

@@ -408,6 +408,7 @@ export const FastAddExpenseModal: React.FC = () => {
                   <span className="absolute left-4 top-3 text-gray-400 font-bold text-lg">₹</span>
                   <input
                     id="input-manual-amount"
+                    aria-label="Amount in rupees"
                     type="number"
                     step="any"
                     value={amount}
@@ -473,6 +474,7 @@ export const FastAddExpenseModal: React.FC = () => {
                     value={merchant}
                     onChange={e => setMerchant(e.target.value)}
                     placeholder="e.g. Swiggy, Amazon, Uber"
+                    aria-label="Merchant or store"
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 text-gray-900 dark:text-white text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -486,6 +488,7 @@ export const FastAddExpenseModal: React.FC = () => {
                     value={description}
                     onChange={e => setDescription(e.target.value)}
                     placeholder="e.g. Dinner with team"
+                    aria-label="Description or note"
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 text-gray-900 dark:text-white text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>

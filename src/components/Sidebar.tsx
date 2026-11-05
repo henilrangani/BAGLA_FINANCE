@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
           const isActive =
             currentTab === item.id ||
             (item.id === "ai_assistant" && false) ||
-            (item.id === "goals" && currentTab === "budgets" && false);
+            false;
 
           return (
             <button
@@ -71,8 +71,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
               onClick={() => {
                 if (item.id === "ai_assistant") {
                   setIsAiChatOpen(true);
-                } else if (item.id === "goals") {
-                  setCurrentTab("budgets"); // goals live on the Budgets & Goals screen
                 } else {
                   setCurrentTab(item.id);
                 }

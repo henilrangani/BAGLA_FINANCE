@@ -44,7 +44,7 @@ import { hashPin, isValidPin, lockoutDelayMs, verifyPin } from "../utils/pin";
 import { activeProfile, profileKey } from "../api/profile";
 import { api, ApiError, readSession, setOfflineGuard } from "../api/client";
 import { enqueue, ensureAccounts, pendingCount, pullAll, runOutbox, unsyncedIds, type OutboxOp } from "../api/sync";
-import { addRemoteExpense, archiveRemoteGroup, createRemoteGroup, pullGroups, recordRemoteSettlement, voidRemoteExpense } from "../api/groups";
+import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGroup, pullGroups, recordRemoteSettlement, voidRemoteExpense } from "../api/groups";
 import type { AccountRefs } from "../api/mappers";
 
 interface FinanceContextType {
@@ -107,10 +107,14 @@ interface FinanceContextType {
   createGroupFromPreset: (presetId: string, customName?: string) => Group;
   addGroupExpense: (groupId: string, expense: Omit<GroupExpense, "id" | "groupId" | "createdAt">) => void;
   deleteGroup: (groupId: string) => void;
-  deleteGroupExpense: (groupId: string, expenseId: string) => void;
+  deleteGroupExpense: (groupId: string, expenseId: string, opts?: { confirmBalanceChange?: boolean }) => void;
   settleGroupPayment: (groupId: string, fromMemberId: string, toMemberId: string, amount: number, method?: any) => void;
   markSettlementPaid: (groupId: string, settlementId: string, method?: any) => void;
   updateGroup: (group: Group) => void;
+  /** Add a person to a group (account mode: on the server). Resolves when saved. */
+  addGroupMember: (groupId: string, name: string, upiId?: string) => Promise<void>;
+  /** Account mode: reload groups from the server (after joining, removing, etc.). */
+  refreshGroups: (selectId?: string) => Promise<void>;
   generateWhatsAppSummary: (groupId: string) => string;
   
   // Budgets & Goals
@@ -483,7 +487,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setGoals(prev => prev.map(g => (remap[g.id] ? { ...g, id: remap[g.id] } : g)));
       }
       if (res.error && res.remaining > 0) {
-        setCloud(c => ({ ...c, state: res.offline ? "offline" : "error", pending: res.remaining, message: res.error }));
+        // No session left (refresh token expired/revoked): say "signed out", not a generic error.
+        setCloud(c => ({ ...c, state: !readSession() ? "signed_out" : res.offline ? "offline" : "error",
+          pending: res.remaining, message: res.error }));
         return;
       }
       if (pull || res.done > 0) {
@@ -520,7 +526,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (PROFILE.kind !== "cloud") return false;
     op()
       .then(r => { after?.(r); })
-      .catch((e: ApiError) => setCloud(c => ({ ...c, state: e?.isOffline ? "offline" : "error",
+      .catch((e: ApiError) => setCloud(c => ({ ...c,
+        state: e?.status === 401 && !readSession() ? "signed_out" : e?.isOffline ? "offline" : "error",
         message: `Group change not saved: ${e?.message || "request failed"}` })))
       .finally(() => { pullGroups().then(setGroups).catch(() => {}); });
     return true;
@@ -857,8 +864,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  const deleteGroupExpense = (groupId: string, expenseId: string) => {
-    groupOp(() => voidRemoteExpense(groupId, expenseId));
+  const deleteGroupExpense = (groupId: string, expenseId: string, opts: { confirmBalanceChange?: boolean } = {}) => {
+    // Account mode: the server voids the expense and its linked personal entry; pull both back.
+    const remote = groupOp(() => voidRemoteExpense(groupId, expenseId, !!opts.confirmBalanceChange),
+      () => syncNow(true));
+    if (!remote) {
+      // Device mode: remove the personal entry that mirrored this expense, if any.
+      transactions.filter(t => t.groupExpenseId === expenseId).forEach(t => deleteTransaction(t.id));
+    }
     setGroups(prev => prev.map(g => {
       if (g.id === groupId) {
         const updatedExpenses = g.expenses.filter(e => e.id !== expenseId);
@@ -895,11 +908,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return g;
     }));
 
-    groupOp(() => addRemoteExpense(groupId, expenseData, newKey("ge")));
-
-    // If paid by current user, optionally log in personal transactions too
     const currentMemberId = groups.find(g => g.id === groupId)?.members.find(m => m.isCurrentUser)?.id;
-    if (expenseData.paidByMemberId === currentMemberId) {
+    const iPaid = expenseData.paidByMemberId === currentMemberId;
+    // Account mode: the server records my personal entry (linked, voided with the expense).
+    const remote = groupOp(
+      () => addRemoteExpense(groupId, expenseData, newKey("ge"), iPaid ? refsRef.current?.bankId : undefined),
+      () => { if (iPaid) syncNow(true); });
+
+    // Device mode: if paid by current user, log it in personal transactions too (linked to the expense)
+    if (!remote && iPaid) {
       addTransaction({
         amount: expenseData.amount,
         type: "expense",
@@ -915,7 +932,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         status: "verified",
         confidence: 1.0,
         notes: `Paid for group members (${expenseData.participants.length} people)`,
-        tags: ["group-expense"]
+        tags: ["group-expense"],
+        groupExpenseId: newExpense.id
       });
     }
   };
@@ -1007,6 +1025,28 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         origin: { y: 0.65 }
       });
     } catch {}
+  };
+
+  const refreshGroups = async (selectId?: string) => {
+    if (PROFILE.kind !== "cloud") return;
+    const fresh = await pullGroups();
+    setGroups(fresh);
+    if (selectId && fresh.some(g => g.id === selectId)) setSelectedGroupId(selectId);
+  };
+
+  const addGroupMember = async (groupId: string, name: string, upiId?: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    if (PROFILE.kind === "cloud") {
+      await addRemoteMember(groupId, clean, upiId);
+      await refreshGroups(groupId);
+      return;
+    }
+    // Device mode: no invented UPI ID; the person adds their own (or it stays empty).
+    setGroups(prev => prev.map(g => g.id === groupId
+      ? { ...g, members: [...g.members, { id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: clean,
+          upiId: upiId?.trim() || undefined }] }
+      : g));
   };
 
   const updateGroup = (updated: Group) => {
@@ -1520,6 +1560,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         settleGroupPayment,
         markSettlementPaid,
         updateGroup,
+        addGroupMember,
+        refreshGroups,
         generateWhatsAppSummary,
         addBudget,
         updateBudget,

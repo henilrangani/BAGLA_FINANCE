@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local test artifacts (never commit)
+test-results/
+playwright-report/
+blob-report/
+e2e/.auth/
+creds*.txt
+*.e2e.db
+playwright-output/

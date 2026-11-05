@@ -29,7 +29,9 @@ import { GROUP_TEMPLATES, computeGroupNetRupees } from "../services/data";
 import { buildUpiPayLink } from "../utils/upi";
 import confetti from "canvas-confetti";
 import { localDateString } from "../utils/dates";
-import { normalizeRupees, parseRupeeInput, splitRupeesEqually, subtractRupees, sumRupees } from "../utils/money";
+import { formatINR, normalizeRupees, parseRupeeInput, splitRupeesEqually, subtractRupees, sumRupees } from "../utils/money";
+import { describeVoid, previewRemoteVoid, type VoidPreview } from "../api/groups";
+import { GroupMemberToolbar, JoinGroupDialog, MemberCardActions } from "../components/GroupMembersPanel";
 
 export const GroupsView: React.FC = () => {
   const {
@@ -44,8 +46,15 @@ export const GroupsView: React.FC = () => {
     createGroupFromPreset,
     deleteGroup,
     generateWhatsAppSummary,
-    settings
+    settings,
+    cloud,
+    transactions,
+    addGroupMember,
+    refreshGroups
   } = useFinance();
+  const accountMode = cloud.enabled && cloud.state !== "signed_out";
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const joinDialog = isJoinOpen && <JoinGroupDialog onClose={() => setIsJoinOpen(false)} refresh={refreshGroups} />;
 
   const [activeTab, setActiveTab] = useState<"overview" | "expenses" | "members">("overview");
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
@@ -226,6 +235,36 @@ export const GroupsView: React.FC = () => {
     setIsAddExpenseOpen(false);
   };
 
+  // Delete (void) a group expense, explaining the financial effect first.
+  const handleDeleteExpense = async (exp: GroupExpense) => {
+    if (!activeGroup) return;
+    const nameOf = (id: string) => [...activeGroup.members, ...(activeGroup.formerMembers || [])]
+      .find(m => m.id === id)?.name || "A former member";
+    if (cloud.enabled && cloud.state !== "signed_out") {
+      let pv: VoidPreview;
+      try {
+        pv = await previewRemoteVoid(activeGroup.id, exp.id);
+      } catch (e) {
+        window.alert(`Couldn't check this expense right now (${(e as Error).message}). Nothing was changed.`);
+        return;
+      }
+      if (pv.blocker) { window.alert(pv.blocker); return; }
+      if (!pv.can_void) { window.alert("Only the person who added this expense or a group admin can delete it."); return; }
+      if (!window.confirm(describeVoid(exp.description, pv, nameOf))) return;
+      deleteGroupExpense(activeGroup.id, exp.id, { confirmBalanceChange: pv.balance_flips.length > 0 });
+      return;
+    }
+    const paid = activeGroup.settlements.filter(st => st.status !== "suggested").length;
+    const lines = [`Delete "${exp.description}" (${formatINR(exp.amount)})? Everyone's balances will be recalculated.`];
+    if (paid > 0) {
+      lines.push("", `${paid} payment(s) already marked as paid in this group stay as they are, so someone may then need to be paid back.`);
+    }
+    if (transactions.some(t => t.groupExpenseId === exp.id)) {
+      lines.push("", "The matching entry in your own transactions will be removed too.");
+    }
+    if (window.confirm(lines.join("\n"))) deleteGroupExpense(activeGroup.id, exp.id);
+  };
+
   // Handle Create Group Form Submit
   const handleCreateGroupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,8 +430,15 @@ export const GroupsView: React.FC = () => {
           <Plus className="w-4 h-4" />
           <span>Create Your First Group</span>
         </button>
+        {accountMode && (
+          <button onClick={() => setIsJoinOpen(true)}
+            className="block mx-auto text-xs font-bold text-[#059669] hover:underline cursor-pointer">
+            Have a code? Join a group
+          </button>
+        )}
       </div>
       {newGroupModal}
+      {joinDialog}
       </>
     );
   }
@@ -428,6 +474,15 @@ export const GroupsView: React.FC = () => {
               {copiedSummary ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
               <span>{copiedSummary ? "Copied!" : "Share Summary"}</span>
             </button>
+
+            {accountMode && (
+              <button
+                onClick={() => setIsJoinOpen(true)}
+                className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200/80 dark:border-slate-800 rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 transition-all"
+              >
+                <span>Join with a code</span>
+              </button>
+            )}
 
             <button
               onClick={() => setIsNewGroupOpen(true)}
@@ -821,11 +876,7 @@ export const GroupsView: React.FC = () => {
                         ₹{exp.amount.toLocaleString("en-IN")}
                       </span>
                       <button
-                        onClick={() => {
-                          if (window.confirm(`Delete "${exp.description}" (₹${exp.amount.toLocaleString("en-IN")})? Everyone's balances will be recalculated.`)) {
-                            deleteGroupExpense(activeGroup.id, exp.id);
-                          }
-                        }}
+                        onClick={() => handleDeleteExpense(exp)}
                         className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
                         title="Delete expense"
                         aria-label={`Delete expense ${exp.description}`}
@@ -847,33 +898,15 @@ export const GroupsView: React.FC = () => {
               <span className="text-xs font-bold text-gray-500">
                 Individual balance breakdown for {activeGroup.members.length} members
               </span>
-              <button
-                onClick={() => {
-                  const memberName = prompt("Enter new member's name:");
-                  if (memberName && memberName.trim()) {
-                    const cleanName = memberName.trim();
-                    const newMemberList = [
-                      ...activeGroup.members,
-                      {
-                        id: `m-${Date.now()}`,
-                        name: cleanName,
-                        upiId: `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "")}@upi`
-                      }
-                    ];
-                    // Handled through group update
-                  }
-                }}
-                className="text-xs font-bold text-[#059669] hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Member</span>
-              </button>
+              <GroupMemberToolbar group={activeGroup} accountMode={accountMode} addMember={addGroupMember}
+                refresh={refreshGroups} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {groupStats.memberBalances.map(({ member, paid, consumed, net }) => (
                 <div
                   key={member.id}
+                  data-testid={`member-card-${member.name}`}
                   className="p-4 rounded-2xl bg-[#F8FAFC] dark:bg-slate-800/50 border border-gray-200/60 dark:border-slate-700/60 space-y-2"
                 >
                   <div className="flex items-center justify-between">
@@ -906,6 +939,8 @@ export const GroupsView: React.FC = () => {
                     <div>Paid: <strong>₹{paid.toLocaleString("en-IN")}</strong></div>
                     <div>Share: <strong>₹{consumed.toLocaleString("en-IN")}</strong></div>
                   </div>
+                  <MemberCardActions group={activeGroup} accountMode={accountMode} member={member} netRupees={net}
+                    addMember={addGroupMember} refresh={refreshGroups} />
                 </div>
               ))}
             </div>
@@ -1116,6 +1151,7 @@ export const GroupsView: React.FC = () => {
       )}
 
       {newGroupModal}
+      {joinDialog}
     </div>
   );
 };

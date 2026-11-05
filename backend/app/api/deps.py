@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.models import AuthSession, User
@@ -71,4 +72,4 @@ class RateLimiter:
                                 headers={"Retry-After": str(int(reset - now) + 1)})
 
 
-auth_limiter = RateLimiter(limit=20, window_seconds=15 * 60)
+auth_limiter = RateLimiter(limit=get_settings().auth_rate_limit, window_seconds=15 * 60)

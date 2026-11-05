@@ -4,17 +4,21 @@
  * works unchanged, and wraps the write endpoints.
  */
 import type { Group, GroupExpense } from "../types";
-import { api } from "./client";
+import { ApiError, api } from "./client";
 import { toCategoryId } from "./mappers";
-import { fromPaise, safeRupees, toPaise } from "../utils/money";
+import { formatINR, fromPaise, safeRupees, toPaise } from "../utils/money";
 
 export function fromServerGroup(d: any): Group {
-  const members = d.members.filter((m: any) => m.status === "active").map((m: any) => ({
+  const toMember = (m: any) => ({
     id: m.id,
     name: m.display_name,
     isCurrentUser: m.is_me,
     upiId: m.upi_id || undefined,
-  }));
+    role: m.role,
+    linked: !!m.linked,
+  });
+  const members = d.members.filter((m: any) => m.status === "active").map(toMember);
+  const formerMembers = d.members.filter((m: any) => m.status !== "active").map(toMember);
   const expenses: GroupExpense[] = d.expenses.filter((e: any) => e.status === "posted").map((e: any) => ({
     id: e.id,
     groupId: d.id,
@@ -52,6 +56,8 @@ export function fromServerGroup(d: any): Group {
     inviteCode: "",
     createdAt: "",
     archived: d.is_archived,
+    myRole: d.my_role,
+    formerMembers,
   } as Group;
 }
 
@@ -71,21 +77,56 @@ export async function createRemoteGroup(name: string, description: string, emoji
   return g.id;
 }
 
-/** Exact shares when the app supplies them (they already sum to the amount), else an equal split. */
+/**
+ * Exact shares when the app supplies them (they already sum to the amount), else an equal split.
+ * personalAccountId: when I paid, the server also records the full amount in my own ledger
+ * (linked to the expense, voided with it). The app no longer creates that entry itself.
+ */
 export async function addRemoteExpense(groupId: string, e: Omit<GroupExpense, "id" | "groupId" | "createdAt">,
-  idempotencyKey: string): Promise<void> {
+  idempotencyKey: string, personalAccountId?: string): Promise<void> {
   const amountPaise = toPaise(Math.abs(safeRupees(e.amount)));
   const shares = (e.participants || []).map(p => ({ member_id: p.memberId, share_paise: toPaise(safeRupees(p.amountOwed)) }));
   const exact = shares.length > 0 && shares.reduce((s, x) => s + x.share_paise, 0) === amountPaise;
   await api("POST", `/api/v1/groups/${groupId}/expenses`, {
     description: e.description.slice(0, 300), amount_paise: amountPaise, paid_by_member_id: e.paidByMemberId,
     category: e.categoryId, expense_date: e.date, idempotency_key: idempotencyKey,
+    personal_account_id: personalAccountId,
     ...(exact ? { split: "exact", shares } : { split: "equal", participant_ids: shares.length ? shares.map(s => s.member_id) : undefined }),
   });
 }
 
-export const voidRemoteExpense = (groupId: string, expenseId: string) =>
-  api("DELETE", `/api/v1/groups/${groupId}/expenses/${expenseId}`);
+export const voidRemoteExpense = (groupId: string, expenseId: string, confirmBalanceChange = false) =>
+  api("DELETE", `/api/v1/groups/${groupId}/expenses/${expenseId}${confirmBalanceChange ? "?confirm_balance_change=true" : ""}`);
+
+export interface VoidPreview {
+  can_void: boolean;
+  status: string;
+  amount_paise: number;
+  balance_flips: { member_id: string; before_paise: number; after_paise: number }[];
+  recorded_settlements: number;
+  suggested_after: { from_member_id: string; to_member_id: string; amount_paise: number }[];
+  personal_entry: "will_void" | "will_flag_for_payer" | null;
+  blocker: string | null;
+}
+
+export const previewRemoteVoid = (groupId: string, expenseId: string) =>
+  api<VoidPreview>("GET", `/api/v1/groups/${groupId}/expenses/${expenseId}/void-preview`);
+
+/** Plain-language confirmation text for voiding a group expense (account mode). */
+export function describeVoid(description: string, pv: VoidPreview, nameOf: (id: string) => string): string {
+  const lines = [`Delete "${description}" (${formatINR(fromPaise(pv.amount_paise))})?`,
+    "It stays in the history as deleted, and everyone's balances are recalculated."];
+  if (pv.balance_flips.length > 0) {
+    lines.push("", `${pv.recorded_settlements} payment(s) already recorded in this group stay as they are, so afterwards:`);
+    for (const s of pv.suggested_after) {
+      lines.push(`• ${nameOf(s.from_member_id)} will need to pay back ${nameOf(s.to_member_id)} ${formatINR(fromPaise(s.amount_paise))}`);
+    }
+    lines.push("If a recorded payment never actually happened, undo that payment instead.");
+  }
+  if (pv.personal_entry === "will_void") lines.push("", "The matching entry in your own transactions will be removed too.");
+  if (pv.personal_entry === "will_flag_for_payer") lines.push("", "The payer's own transactions aren't changed; their entry is flagged for them to review.");
+  return lines.join("\n");
+}
 
 export const recordRemoteSettlement = (groupId: string, from: string, to: string, amountRupees: number,
   method: string, idempotencyKey: string) =>
@@ -96,3 +137,42 @@ export const recordRemoteSettlement = (groupId: string, from: string, to: string
 
 export const archiveRemoteGroup = (groupId: string) =>
   api("PATCH", `/api/v1/groups/${groupId}`, { is_archived: true });
+
+// --------------------------------------------------------------------------- members & invitations
+
+export const addRemoteMember = (groupId: string, name: string, upiId?: string) =>
+  api("POST", `/api/v1/groups/${groupId}/members`, { display_name: name.trim().slice(0, 120), upi_id: upiId?.trim() || undefined });
+
+export const updateRemoteMember = (groupId: string, memberId: string, changes: { display_name?: string; upi_id?: string | null }) =>
+  api("PATCH", `/api/v1/groups/${groupId}/members/${memberId}`, changes);
+
+/** One-time code for a named seat; only its SHA-256 is stored on the server, valid 7 days. */
+export const inviteRemoteMember = (groupId: string, memberId: string) =>
+  api<{ token: string; expires_on: string }>("POST", `/api/v1/groups/${groupId}/members/${memberId}/invite`);
+
+export const removeRemoteMember = (groupId: string, memberId: string) =>
+  api("DELETE", `/api/v1/groups/${groupId}/members/${memberId}`);
+
+export const claimRemoteSeat = (code: string) =>
+  api<{ group_id: string; member_id: string }>("POST", "/api/v1/groups/claim", { token: code.trim() });
+
+export function inviteShareText(groupName: string, memberName: string, code: string, expiresOn: string): string {
+  return [
+    `${memberName}, join "${groupName}" on Bagla Finance to see and add our shared expenses.`,
+    `Sign in, open Split Hub, tap "Join with a code" and enter:`,
+    code,
+    `The code works once and expires on ${expiresOn}.`,
+  ].join("\n");
+}
+
+/** Clear, specific messages for the join flow. */
+export function claimErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.status === 400) return "This code is invalid, has already been used, or has expired. Ask the group admin for a new one.";
+    if (e.status === 409) return "You're already a member of this group.";
+    if (e.status === 422) return "That doesn't look like a complete code. Copy the whole code and try again.";
+    if (e.status === 401) return "Sign in to your Bagla account first, then enter the code.";
+    if (e.isOffline) return e.message;
+  }
+  return (e as Error)?.message || "Couldn't join right now. Please try again.";
+}
