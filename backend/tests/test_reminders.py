@@ -140,3 +140,69 @@ async def test_missed_months_are_reminded_as_overdue(client):
     q, _ = await run(datetime(2026, 11, 7, 6, 0, tzinfo=timezone.utc))
     titles = sorted(i["title"] for i in (await client.get(f"{API}/notifications", headers=auth(h))).json())
     assert q == 3 and titles == ["Internet is due today", "Internet was due", "Internet was due"]
+
+
+
+async def test_job_run_is_recorded_and_health_reports_staleness(client):
+    from app.jobs.reminders import run as job_run
+
+    r = await client.get("/health/jobs")
+    assert r.status_code == 503 and r.json()["reminders"]["healthy"] is False  # never ran
+    h = await register(client, "job@example.com")
+    await bill(client, h, "2026-11-07", remind_days_before=0)
+    out = await job_run(datetime(2026, 11, 7, 6, 0, tzinfo=timezone.utc))
+    assert out["status"] == "ok" and out["queued"] == 1 and out["delivered"] == 1
+    # The run finished just now (wall clock), so monitoring reports healthy.
+    r = await client.get("/health/jobs")
+    assert r.status_code == 200 and r.json()["reminders"]["last_status"] == "ok"
+    # Running again is harmless: nothing new is queued or delivered.
+    again = await job_run(datetime(2026, 11, 7, 6, 15, tzinfo=timezone.utc))
+    assert again["queued"] == 0 and again["delivered"] == 0
+    assert len((await client.get(f"{API}/notifications", headers=auth(h))).json()) == 1
+
+
+async def test_concurrent_deliveries_never_send_twice(client):
+    import asyncio as aio
+
+    @dataclass
+    class Counting:
+        name: str = "fake"
+        calls: list = field(default_factory=list)
+
+        async def send(self, to, subject, body):
+            self.calls.append(to)
+            await aio.sleep(0.01)
+
+    h = await register(client, "twice@example.com")
+    await client.patch(f"{API}/notifications/preferences", headers=auth(h), json={"email_enabled": True})
+    await bill(client, h, "2026-11-07", remind_days_before=0)
+    now = datetime(2026, 11, 7, 6, 0, tzinfo=timezone.utc)
+    async for db in get_db():
+        await queue_bill_reminders(db, now)
+    p = Counting()
+
+    async def worker():
+        async for db in get_db():
+            return await deliver_pending(db, now, p)
+
+    await aio.gather(worker(), worker(), worker())
+    assert p.calls == ["twice@example.com"]  # exactly one email despite three concurrent workers
+
+
+async def test_overlapping_job_runs_are_skipped_on_postgres(client):
+    import pytest
+    from sqlalchemy import text
+
+    from app.core.database import get_engine
+    from app.jobs.reminders import LOCK_KEY
+    from app.jobs.reminders import run as job_run
+
+    engine = get_engine()
+    if engine.url.get_backend_name() != "postgresql":
+        pytest.skip("advisory locks are PostgreSQL-only")
+    async with engine.connect() as holder:
+        assert (await holder.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": LOCK_KEY})).scalar()
+        out = await job_run(datetime(2026, 11, 7, 6, 0, tzinfo=timezone.utc))
+        assert out == {"status": "skipped"}
+        await holder.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": LOCK_KEY})
+    assert (await job_run(datetime(2026, 11, 7, 6, 0, tzinfo=timezone.utc)))["status"] == "ok"

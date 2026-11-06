@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -51,3 +52,25 @@ app.include_router(api_router, prefix="/api/v1")
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/health/jobs")
+async def health_jobs():
+    """For uptime monitors: is the reminder job running on schedule? No user data is returned."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.core.database import get_db
+    from app.models.jobs import JobRun
+
+    async for db in get_db():
+        last_ok = await db.scalar(select(JobRun.finished_at).where(JobRun.job == "reminders", JobRun.status == "ok")
+                                  .order_by(JobRun.finished_at.desc()).limit(1))
+        last = await db.scalar(select(JobRun).where(JobRun.job == "reminders")
+                               .order_by(JobRun.started_at.desc()).limit(1))
+        age = (datetime.now(timezone.utc) - last_ok).total_seconds() if last_ok else None
+        healthy = age is not None and age <= 45 * 60  # 3 missed 15-minute runs
+        body = {"reminders": {"last_success_at": last_ok, "age_seconds": int(age) if age is not None else None,
+                              "last_status": last.status if last else None, "healthy": healthy}}
+        return JSONResponse(jsonable_encoder(body), status_code=200 if healthy else 503)

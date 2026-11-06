@@ -9,6 +9,8 @@ from tests.conftest import PASSWORD, add_tx, auth, cash_account, register
 PUBLIC = {
     ("POST", "/api/v1/auth/register"), ("POST", "/api/v1/auth/login"), ("POST", "/api/v1/auth/refresh"),
     ("GET", "/health"),
+    # Uptime monitors poll this; it returns only the reminder job's last run time/status, no user data.
+    ("GET", "/health/jobs"),
 }
 
 

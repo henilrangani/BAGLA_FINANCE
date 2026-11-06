@@ -22,13 +22,14 @@ from .groups import (
     SplitSettlement,
     SplitShare,
 )
+from .jobs import JobRun
 from .ledger import AuditEvent, FinancialAccount, Transaction
 from .notifications import Notification, NotificationPreference
 from .planning import Budget, GoalContribution, SavingsGoal
 from .user import AuthSession, User
 
 __all__ = [
-    "FamilyBudget", "FamilyGoal", "FamilyGoalContribution", "Notification", "NotificationPreference",
+    "FamilyBudget", "FamilyGoal", "FamilyGoalContribution", "Notification", "NotificationPreference", "JobRun",
     "Base", "User", "AuthSession", "FinancialAccount", "Transaction", "AuditEvent", "Budget",
     "SavingsGoal", "GoalContribution", "ImportBatch", "ImportRow", "FamilyGroup", "FamilyMember",
     "FamilyInvite", "SupportTicket", "Feedback", "Plan", "UserSubscription", "BillingEvent",

@@ -19,7 +19,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Protocol
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -126,14 +126,33 @@ async def queue_bill_reminders(db: AsyncSession, now: datetime | None = None) ->
     return created
 
 
+LEASE = timedelta(minutes=10)
+
+
 async def deliver_pending(db: AsyncSession, now: datetime | None = None,
                           email: EmailProvider | None = None) -> dict:
+    """Deliver due notifications. Each row is *claimed* with a conditional update that pushes
+    next_attempt_at forward by a lease, committed before sending; only the claimer sends.
+    Works the same on PostgreSQL and SQLite. A crash mid-send leaves the row to be retried when
+    the lease expires (at-least-once for email; in-app delivery is idempotent)."""
     now = now or datetime.now(timezone.utc)
     email = email or DisabledEmailProvider()
     stats = {"delivered": 0, "failed": 0, "skipped": 0, "retry": 0}
-    due = list(await db.scalars(select(Notification).where(Notification.status == "pending",
-                                                           Notification.next_attempt_at <= now).limit(500)))
-    for n in due:
+    for _ in range(500):
+        cand = await db.scalar(select(Notification.id).where(Notification.status == "pending",
+                                                             Notification.next_attempt_at <= now)
+                               .order_by(Notification.next_attempt_at).limit(1)
+                               .with_for_update(skip_locked=True))
+        if cand is None:
+            break
+        claimed = await db.execute(update(Notification).where(
+            Notification.id == cand, Notification.status == "pending", Notification.next_attempt_at <= now)
+            .values(next_attempt_at=now + LEASE))
+        await db.commit()
+        if claimed.rowcount != 1:
+            continue  # another worker took it
+        n = await db.get(Notification, cand)
+        await db.refresh(n)
         if n.channel == "in_app":
             n.status, n.delivered_at = "delivered", now
             stats["delivered"] += 1
