@@ -212,3 +212,78 @@ async def test_removing_a_member_needs_settlement_and_keeps_history(client):
     assert ravi["status"] == "removed"
     assert shares_of(g)[m["Ravi"]] == 300 and len(g["settlements"]) == 1  # history kept
     assert sum(x["net_paise"] for x in g["members"]) == 0
+
+
+# ---------------------------------------------------------------- founder's worked examples, group sizes, races
+
+async def _expense(client, h, g, **body):
+    r = await client.post(f"{API}/groups/{g['id']}/expenses", headers=auth(h), json={"description": "x", **body})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+async def test_worked_examples_allocate_exactly(client):
+    h = await register(client)
+    g = await make_group(client, h, names=("Ravi", "Meera"))
+    m = by_name(g)
+    me = g["my_member_id"]
+    # Rs 100 among 3 people.
+    g = await _expense(client, h, g, amount_paise=10_000, paid_by_member_id=me)
+    assert sorted(s["share_paise"] for s in g["expenses"][0]["shares"]) == [3333, 3333, 3334]
+    # Rs 1,000 split 50/30/20.
+    g = await _expense(client, h, g, amount_paise=100_000, paid_by_member_id=me, split="percentage",
+                       weights=[{"member_id": me, "weight": 5000}, {"member_id": m["Ravi"], "weight": 3000},
+                                {"member_id": m["Meera"], "weight": 2000}])
+    assert {s["member_id"]: s["share_paise"] for s in g["expenses"][0]["shares"]} == {
+        me: 50_000, m["Ravi"]: 30_000, m["Meera"]: 20_000}
+    # Rs 1,500 with Meera excluded.
+    g = await _expense(client, h, g, amount_paise=150_000, paid_by_member_id=m["Ravi"],
+                       participant_ids=[me, m["Ravi"]])
+    assert {s["member_id"]: s["share_paise"] for s in g["expenses"][0]["shares"]} == {me: 75_000, m["Ravi"]: 75_000}
+    # Rs 2,501 with custom shares 2:2:1 (odd paise: 1000.40 + 1000.40 + 500.20 = 2501.00).
+    g = await _expense(client, h, g, amount_paise=250_100, paid_by_member_id=me, split="shares",
+                       weights=[{"member_id": me, "weight": 2}, {"member_id": m["Ravi"], "weight": 2},
+                                {"member_id": m["Meera"], "weight": 1}])
+    sh = {s["member_id"]: s["share_paise"] for s in g["expenses"][0]["shares"]}
+    assert sh == {me: 100_040, m["Ravi"]: 100_040, m["Meera"]: 50_020} and sum(sh.values()) == 250_100
+    for e in g["expenses"]:
+        assert sum(s["share_paise"] for s in e["shares"]) == e["amount_paise"]
+    assert sum(x["net_paise"] for x in g["members"]) == 0
+
+
+@pytest.mark.parametrize("others", [1, 3, 5, 9, 49])  # 2, 4, 6, 10 and 50 (the maximum) people
+async def test_group_sizes_split_exactly(client, others):
+    h = await register(client)
+    g = await make_group(client, h, names=[f"P{i}" for i in range(others)])
+    assert len(g["members"]) == others + 1
+    g = await _expense(client, h, g, amount_paise=100_001, paid_by_member_id=g["my_member_id"])
+    shares = [s["share_paise"] for s in g["expenses"][0]["shares"]]
+    assert sum(shares) == 100_001 and max(shares) - min(shares) <= 1
+    assert sum(x["net_paise"] for x in g["members"]) == 0
+    if others == 49:
+        r = await client.post(f"{API}/groups/{g['id']}/members", headers=auth(h), json={"display_name": "One too many"})
+        assert r.status_code == 409
+
+
+async def test_simultaneous_full_paybacks_record_only_once(client):
+    import asyncio
+    h = await register(client)
+    g = await make_group(client, h, names=("Ravi",))
+    m = by_name(g)
+    me = g["my_member_id"]
+    g = await _expense(client, h, g, amount_paise=1000, paid_by_member_id=me)  # Ravi owes 500
+    body = {"from_member_id": m["Ravi"], "to_member_id": me, "amount_paise": 500, "method": "cash"}
+    url = f"{API}/groups/{g['id']}/settlements"
+    r1, r2 = await asyncio.gather(
+        client.post(url, headers=auth(h), json={**body, "idempotency_key": "pay-a-123"}),
+        client.post(url, headers=auth(h), json={**body, "idempotency_key": "pay-b-456"}))
+    assert sorted([r1.status_code, r2.status_code]) == [201, 409]  # the second would over-settle
+    g = (await client.get(f"{API}/groups/{g['id']}", headers=auth(h))).json()
+    assert [s["amount_paise"] for s in g["settlements"] if s["status"] == "recorded"] == [500]
+    assert all(x["net_paise"] == 0 for x in g["members"])
+    # A retried request with the same key is recorded once, not twice.
+    again = await client.post(f"{API}/groups/{g['id']}/settlements", headers=auth(h),
+                              json={**body, "amount_paise": 500, "idempotency_key": "pay-a-123"})
+    assert again.status_code in (200, 201)
+    g = (await client.get(f"{API}/groups/{g['id']}", headers=auth(h))).json()
+    assert len([s for s in g["settlements"] if s["status"] == "recorded"]) == 1

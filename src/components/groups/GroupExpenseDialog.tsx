@@ -16,6 +16,18 @@ const METHODS: { id: SplitMethod; label: string; hint: string }[] = [
   { id: "shares", label: "Shares", hint: "e.g. 2 for someone who had double; 0 leaves a person out." },
 ];
 
+// Quick starts: they fill in the description and category only (never an amount); everything stays editable.
+const TEMPLATES: { label: string; description: string; categoryId: string }[] = [
+  { label: "Monthly rent", description: "Monthly rent", categoryId: "cat-rent" },
+  { label: "Electricity", description: "Electricity bill", categoryId: "cat-electricity" },
+  { label: "Internet", description: "Internet / Wi-Fi bill", categoryId: "cat-internet" },
+  { label: "Groceries", description: "Groceries", categoryId: "cat-groceries" },
+  { label: "Maintenance", description: "House maintenance", categoryId: "cat-family" },
+  { label: "Travel", description: "Travel", categoryId: "cat-travel" },
+  { label: "Food", description: "Food", categoryId: "cat-food" },
+  { label: "Event", description: "Event", categoryId: "cat-entertainment" },
+];
+
 const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const field = "w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]";
 const lbl = "text-xs font-bold text-gray-700 dark:text-slate-300 block mb-1";
@@ -105,6 +117,18 @@ export const GroupExpenseDialog: React.FC<Props> = ({ group, categories, onClose
           </div>
 
           <div className="px-6 py-4 space-y-4 overflow-y-auto">
+            <div>
+              <span className={lbl}>Start from (optional)</span>
+              <div className="flex flex-wrap gap-1.5" aria-label="Expense templates">
+                {TEMPLATES.map(t => (
+                  <button key={t.label} type="button"
+                    onClick={() => { setDescription(t.description); if (categories.some(c => c.id === t.categoryId)) setCategoryId(t.categoryId); }}
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 text-[11px] font-bold text-gray-700 dark:text-slate-200 hover:border-[#047857] cursor-pointer">
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="ge-desc" className={lbl}>What was it for? *</label>

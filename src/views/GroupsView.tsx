@@ -29,7 +29,7 @@ import { GROUP_TEMPLATES, computeGroupNetRupees } from "../services/data";
 import { buildUpiPayLink } from "../utils/upi";
 import confetti from "canvas-confetti";
 import { localDateString } from "../utils/dates";
-import { formatINR, normalizeRupees, parseRupeeInput, splitRupeesEqually, subtractRupees, sumRupees } from "../utils/money";
+import { formatINR, normalizeRupees, parseRupeeInput, safeRupees, splitRupeesEqually, subtractRupees, sumRupees, toPaise } from "../utils/money";
 import { describeVoid, previewRemoteVoid, type VoidPreview } from "../api/groups";
 import { GroupMemberToolbar, JoinGroupDialog, MemberCardActions } from "../components/GroupMembersPanel";
 import { GroupSetupDialog, groupTypeLabel, type GroupSetupValues } from "../components/groups/GroupSetupDialog";
@@ -551,6 +551,24 @@ export const GroupsView: React.FC = () => {
         {/* Tab 1: Overview & Settlements */}
         {activeTab === "overview" && (
           <div className="p-6 space-y-6">
+            {/* This month (paise-exact): spending, number of expenses, my share */}
+            {(() => {
+              const month = localDateString().slice(0, 7);
+              const exps = activeGroup.expenses.filter(e => (e.date || "").startsWith(month));
+              const toP = (r: number) => toPaise(safeRupees(r));
+              const total = exps.reduce((sum, e) => sum + toP(e.amount), 0);
+              const mine = exps.reduce((sum, e) => sum + toP(e.participants.find(pt => pt.memberId === currentUserMember?.id)?.amountOwed || 0), 0);
+              const label = new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+              return (
+                <div data-testid="group-month-summary" className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/60 text-xs text-gray-800 dark:text-slate-200 flex flex-wrap gap-x-6 gap-y-1">
+                  <span className="font-bold">{label}</span>
+                  <span>Group spending: <strong>₹{(total / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                  <span>{exps.length} {exps.length === 1 ? "expense" : "expenses"}</span>
+                  {currentUserMember && <span>Your share: <strong>₹{(mine / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>}
+                </div>
+              );
+            })()}
+
             {/* 4 Dynamic Metric Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="p-4 rounded-2xl bg-[#F8FAFC] dark:bg-slate-800/60 border border-gray-200/70 dark:border-slate-700/60">

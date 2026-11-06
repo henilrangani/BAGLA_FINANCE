@@ -141,3 +141,38 @@ test("flexible splits match the server to the paisa; partial payback; rename kee
   expect([ravi.display_name, ravi.net_paise]).toEqual(["Ravi K.", -22500]);
   expect(g.expenses.length).toBe(2);
 });
+
+test("expense templates only pre-fill text; the monthly summary is exact", async ({ page }) => {
+  await openApp(page);
+  await nav(page, "Groups");
+  await page.getByRole("button", { name: /Flatmates \/ Room Rent/ }).click();
+  const setup = page.getByRole("dialog", { name: "Create a group" });
+  await setup.getByLabel("Group name").fill("Template Flat");
+  await setup.getByLabel("Person 2 name").fill("Ravi");
+  await setup.getByRole("button", { name: "Add person" }).click();
+  await setup.getByLabel("Person 3 name").fill("Meera");
+  await setup.getByRole("button", { name: "Create group" }).click();
+  await expect(setup).toBeHidden();
+
+  await page.getByText("+ Add Expense").last().click();
+  const d = page.getByRole("dialog", { name: "Add Group Expense" });
+  await d.getByRole("button", { name: "Monthly rent" }).click();
+  await expect(d.getByLabel("What was it for?")).toHaveValue("Monthly rent");
+  await expect(d.getByLabel("Total amount (₹)")).toHaveValue(""); // never an invented amount
+  await d.getByLabel("What was it for?").fill("Rent – November");  // still editable
+  await d.getByLabel("Total amount (₹)").fill("2501");
+  await d.getByRole("radio", { name: "Shares" }).click();
+  const me = await d.locator("label", { hasText: "(you)" }).first().innerText();
+  const myName = me.replace(" (you)", "").trim();
+  await d.getByLabel(`${myName} shares`).fill("2");
+  await d.getByLabel("Ravi shares").fill("2");
+  await expect(d.getByTestId(`share-${myName}`)).toHaveText("₹1,000.40");
+  await expect(d.getByTestId("share-Ravi")).toHaveText("₹1,000.40");
+  await expect(d.getByTestId("share-Meera")).toHaveText("₹500.20");
+  await d.getByRole("button", { name: "Save expense" }).click();
+  await expect(d).toBeHidden();
+  const summary = page.getByTestId("group-month-summary");
+  await expect(summary).toContainText("Group spending: ₹2,501.00");
+  await expect(summary).toContainText("1 expense");
+  await expect(summary).toContainText("Your share: ₹1,000.40");
+});
