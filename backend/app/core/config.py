@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     max_body_bytes: int = 1_000_000
     login_max_failures: int = 5
     login_lockout_minutes: int = 15
+    # Browser sessions keep the refresh token in an HttpOnly cookie (never readable by page scripts).
+    refresh_cookie_name: str = "bagla_rt"
+    refresh_cookie_secure: bool = True  # local http E2E may set False; refused in staging/production
+    refresh_cookie_samesite: str = "lax"  # lax (API on the same site as the app) | strict | none
+    refresh_cookie_domain: str | None = None
+    # Two tabs refreshing at the same moment both present the same cookie. Within this window the
+    # second gets an access token for the already-rotated session instead of triggering theft lockout.
+    refresh_reuse_grace_seconds: int = 20
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -30,6 +38,18 @@ class Settings(BaseSettings):
         if v != "HS256":
             raise ValueError("only HS256 is supported")
         return v
+
+    @model_validator(mode="after")
+    def safe_cookie(self):
+        if self.refresh_cookie_samesite not in {"lax", "strict", "none"}:
+            raise ValueError("REFRESH_COOKIE_SAMESITE must be lax, strict or none")
+        if self.is_production and not self.refresh_cookie_secure:
+            raise ValueError("REFRESH_COOKIE_SECURE can't be false in staging/production")
+        if self.refresh_cookie_samesite == "none" and not self.refresh_cookie_secure:
+            raise ValueError("SameSite=None cookies must be Secure")
+        if not 0 <= self.refresh_reuse_grace_seconds <= 60:
+            raise ValueError("REFRESH_REUSE_GRACE_SECONDS must be 0-60")
+        return self
 
     @model_validator(mode="after")
     def safe_rate_limit(self):

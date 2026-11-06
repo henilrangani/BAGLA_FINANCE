@@ -4,6 +4,14 @@ import { apiGet, apiLogin, expectGreeting, nav, newUser, signInViaUI, signUpViaU
 test("registration, sign-in on a fresh browser, and session survives reload", async ({ page, browser, request }) => {
   const u = newUser("Asha Test");
   await signUpViaUI(page, u);
+  // The refresh token lives only in an HttpOnly cookie: page scripts and storage never see it.
+  const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }));
+  expect(stored).not.toMatch(/refresh_token/);
+  const rt = (await page.context().cookies()).find(c => c.name === "bagla_rt");
+  expect(rt?.httpOnly).toBe(true);
+  expect(rt?.path).toBe("/api/v1/auth");
+  expect(rt?.sameSite).toBe("Lax");
+  expect(await page.evaluate(() => document.cookie)).not.toContain("bagla_rt");
   await page.reload();
   await expectGreeting(page, u);
   // The server holds the account.

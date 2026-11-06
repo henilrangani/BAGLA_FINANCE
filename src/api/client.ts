@@ -2,22 +2,30 @@
  * Bagla FastAPI client.
  *
  * - Access token: kept in memory only (never persisted).
- * - Refresh token: persisted in localStorage so the user stays signed in.
- *   LIMITATION: readable by any script on the page (mitigated by the strict
- *   CSP: script-src 'self'). Moving it to an httpOnly cookie is planned.
- * - On a 401 the client refreshes once (rotating the refresh token) and retries.
+ * - Refresh token: an HttpOnly, Secure, SameSite cookie set by the API on /api/v1/auth.
+ *   Page scripts can never read it. localStorage keeps only a non-secret marker
+ *   ({user_id, email}) so the app knows which account profile to open.
+ * - Auth requests send X-Bagla-Client: web (cookie mode) and X-Bagla-CSRF: 1 (required by
+ *   the API for refresh/logout; a cross-site form can't set it).
+ * - On a 401 the client refreshes once (the server rotates the cookie) and retries.
+ * - Upgrade: a refresh token left in localStorage by an older version is exchanged once
+ *   for the cookie and then deleted from storage.
  * - Money is always integer paise on the wire.
  */
 
+// Production builds default to the app's own origin: the host rewrites /api/v1/* to the API
+// (DEPLOYMENT_RUNBOOK.md), so the refresh cookie is first-party and the CSP stays connect-src 'self'.
+const ENV = (import.meta as any).env || {};
 export const API_BASE: string =
-  (import.meta as any).env?.VITE_API_URL?.replace(/\/$/, "") || "http://127.0.0.1:8000";
+  ENV.VITE_API_URL?.replace(/\/$/, "") ?? (ENV.PROD ? "" : "http://127.0.0.1:8000");
 
 const SESSION_KEY = "bagla_session_v1";
 
 export interface StoredSession {
-  refresh_token: string;
   user_id: string;
   email: string;
+  /** Legacy (pre-cookie) only; removed after the one-time upgrade. Never written by this version. */
+  refresh_token?: string;
 }
 
 export class ApiError extends Error {
@@ -68,8 +76,15 @@ function messageFrom(body: any, status: number): string {
   return `Request failed (${status})`;
 }
 
+const AUTH_PATH = "/api/v1/auth/";
+
 async function rawFetch(path: string, init: RequestInit): Promise<Response> {
   if (offlineGuard()) throw new ApiError(0, "Offline mode is on. Turn it off to sync with your account.");
+  if (path.startsWith(AUTH_PATH)) {
+    // Only auth calls carry the cookie (it is path-scoped to /api/v1/auth anyway).
+    init = { ...init, credentials: "include",
+      headers: { ...(init.headers as Record<string, string> | undefined), "X-Bagla-Client": "web", "X-Bagla-CSRF": "1" } };
+  }
   try {
     return await fetch(`${API_BASE}${path}`, init);
   } catch {
@@ -82,11 +97,10 @@ async function refresh(): Promise<boolean> {
   if (!s) return false;
   if (!refreshing) {
     refreshing = (async () => {
-      const r = await rawFetch("/api/v1/auth/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: s.refresh_token }),
-      });
+      const legacy = s.refresh_token;
+      const r = await rawFetch("/api/v1/auth/refresh", legacy
+        ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: legacy }) }
+        : { method: "POST" });
       if (!r.ok) {
         // 401 = expired/revoked; 400/422 = a stored token that can never work. Either way the
         // session is over (local data is kept); 429/5xx/offline keep it for a later retry.
@@ -98,7 +112,7 @@ async function refresh(): Promise<boolean> {
       }
       const t = await r.json();
       accessToken = t.access_token;
-      writeSession({ ...s, refresh_token: t.refresh_token });
+      writeSession({ user_id: s.user_id, email: s.email }); // the new token is in the cookie only
       return true;
     })().finally(() => {
       refreshing = null;
@@ -142,7 +156,7 @@ async function signIn(path: string, payload: object): Promise<StoredSession> {
   const t = await api<any>("POST", path, payload, { auth: false });
   accessToken = t.access_token;
   const me = await api<any>("GET", "/api/v1/users/me");
-  const s = { refresh_token: t.refresh_token, user_id: me.id, email: me.email };
+  const s = { user_id: me.id, email: me.email }; // refresh token: HttpOnly cookie, never stored here
   writeSession(s);
   return s;
 }

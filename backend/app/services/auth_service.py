@@ -91,26 +91,55 @@ async def login(db: AsyncSession, email: str, password: str, user_agent: str | N
 
 
 async def refresh(db: AsyncSession, refresh_token: str, user_agent: str | None) -> dict:
+    """Rotate: returns new tokens. If "rotated" is False, only a new access token was issued for the
+    session that already replaced this one (concurrent refresh in the grace window); keep the cookie."""
     session = await db.scalar(select(AuthSession).where(
         AuthSession.refresh_token_hash == hash_refresh_token(refresh_token)).with_for_update())
     bad = HTTPException(status.HTTP_401_UNAUTHORIZED, "Session expired. Please sign in again.")
     if session is None:
         raise bad
     if session.revoked_at is not None:
-        # A rotated-out token was presented again: likely stolen. Revoke every session.
-        await revoke_all(db, session.user_id)
-        await db.commit()
-        raise bad
+        return await _reused(db, session, bad)
     if session.expires_at <= _now():
         raise bad
     user = await db.get(User, session.user_id)
     if user is None or not user.is_active:
         raise bad
     issued = await _issue(db, user, user_agent)
-    session.revoked_at = _now()
-    session.replaced_by_id = issued["session"].id
+    # Conditional rotation: exactly one concurrent refresh wins, even without row locks.
+    won = await db.execute(update(AuthSession).where(AuthSession.id == session.id, AuthSession.revoked_at.is_(None))
+                           .values(revoked_at=_now(), replaced_by_id=issued["session"].id))
+    if won.rowcount != 1:
+        await db.rollback()  # drop the session we just created
+        session = await db.scalar(select(AuthSession).where(
+            AuthSession.refresh_token_hash == hash_refresh_token(refresh_token)))
+        if session is None or session.revoked_at is None:
+            raise bad
+        return await _reused(db, session, bad)
     await db.commit()
-    return issued["tokens"]
+    return {**issued["tokens"], "rotated": True}
+
+
+async def _reused(db: AsyncSession, session: AuthSession, bad: HTTPException) -> dict:
+    """A rotated-out token came back. Within the grace window that's a concurrent refresh (two tabs):
+    issue an access token for the live successor and leave the cookie alone. Otherwise treat it
+    as theft and revoke every session of the user."""
+    s = get_settings()
+    grace = timedelta(seconds=s.refresh_reuse_grace_seconds)
+    if session.replaced_by_id and session.revoked_at > _now() - grace:
+        successor = await db.get(AuthSession, session.replaced_by_id)
+        if successor and successor.revoked_at is None and successor.expires_at > _now():
+            return {"access_token": create_access_token(successor.user_id, successor.id), "refresh_token": None,
+                    "token_type": "bearer", "expires_in": s.access_token_minutes * 60, "rotated": False}
+    user_id = session.user_id
+    await revoke_all(db, user_id)
+    await db.commit()
+    raise bad
+
+
+async def session_for_token(db: AsyncSession, refresh_token: str) -> AuthSession | None:
+    return await db.scalar(select(AuthSession).where(
+        AuthSession.refresh_token_hash == hash_refresh_token(refresh_token)))
 
 
 async def revoke_session(db: AsyncSession, session_id: uuid.UUID) -> None:

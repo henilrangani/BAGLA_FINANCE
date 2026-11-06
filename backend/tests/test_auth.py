@@ -79,7 +79,9 @@ async def test_refresh_rotates_and_reuse_revokes_everything(client):
     assert r1.status_code == 200
     new = r1.json()
     assert new["refresh_token"] != old
-    # Replaying the rotated-out token = theft signal: all sessions die.
+    # Replaying the rotated-out token after the concurrent-refresh grace window = theft signal:
+    # all sessions die. (Age the rotation past the window instead of sleeping.)
+    await age_rotations(seconds=120)
     r2 = await client.post("/api/v1/auth/refresh", json={"refresh_token": old})
     assert r2.status_code == 401
     r3 = await client.post("/api/v1/auth/refresh", json={"refresh_token": new["refresh_token"]})
@@ -152,3 +154,17 @@ async def test_cors_only_allows_configured_origins(client):
     bad = await client.options("/api/v1/users/me", headers={"Origin": "https://evil.example",
                                                              "Access-Control-Request-Method": "GET"})
     assert "access-control-allow-origin" not in bad.headers
+
+
+async def age_rotations(seconds: int) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import update
+
+    from app.core.database import get_db
+    from app.models import AuthSession
+
+    async for db in get_db():
+        await db.execute(update(AuthSession).where(AuthSession.revoked_at.is_not(None))
+                         .values(revoked_at=datetime.now(timezone.utc) - timedelta(seconds=seconds)))
+        await db.commit()

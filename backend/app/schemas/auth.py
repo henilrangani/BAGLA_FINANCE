@@ -19,7 +19,8 @@ class LoginRequest(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str = Field(min_length=20, max_length=200)
+    # Omitted by the browser app, which sends the HttpOnly cookie instead.
+    refresh_token: str | None = Field(default=None, min_length=20, max_length=200)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -29,6 +30,7 @@ class ChangePasswordRequest(BaseModel):
 
 class TokenPair(BaseModel):
     access_token: str
-    refresh_token: str
+    # None for browser (cookie) sessions: the refresh token is only ever in the HttpOnly cookie.
+    refresh_token: str | None = None
     token_type: str = "bearer"  # noqa: S105 (OAuth token type, not a secret)
     expires_in: int  # seconds until the access token expires
