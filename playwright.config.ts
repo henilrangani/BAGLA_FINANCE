@@ -41,7 +41,9 @@ export default defineConfig({
   webServer: [
     { command: "node e2e/start-backend.mjs", url: `${API}/health`, reuseExistingServer: false, timeout: 120_000,
       stdout: "ignore", stderr: "pipe" },
-    { command: `node node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${new URL(APP).port} --strictPort`,
-      url: APP, reuseExistingServer: false, timeout: 120_000, env: { VITE_API_URL: API } },
+    // A production build served by `vite preview`: what users get, and no dev-server dependency
+    // optimisation reloading the page mid-test on a cold CI cache (that made the first test flaky).
+    { command: `node node_modules/vite/bin/vite.js build --outDir dist-e2e --emptyOutDir --logLevel warn && node node_modules/vite/bin/vite.js preview --outDir dist-e2e --host 127.0.0.1 --port ${new URL(APP).port} --strictPort`,
+      url: APP, reuseExistingServer: false, timeout: 180_000, env: { VITE_API_URL: API } },
   ],
 });

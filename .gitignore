@@ -20,3 +20,4 @@ playwright-output/
 # Local release stack
 .env.release
 backups/
+dist-e2e/
