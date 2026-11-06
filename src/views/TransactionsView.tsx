@@ -1,3 +1,4 @@
+import { csvCell } from "../utils/csv";
 import React, { useState, useMemo } from "react";
 import { useFinance } from "../context/FinanceContext";
 import {
@@ -153,7 +154,8 @@ export const TransactionsView: React.FC = () => {
     const headers = "ID,Date,Time,Merchant,Description,Category,Type,Amount,Currency,PaymentMethod,Source,Status\n";
     const rows = filteredTransactions.map(t => {
       const cat = categories.find(c => c.id === t.categoryId)?.name || "General";
-      return `"${t.id}","${t.date}","${t.time || ""}","${t.merchant || ""}","${t.description}","${cat}","${t.type}","${t.amount}","${t.currency}","${t.paymentMethod}","${t.source}","${t.status}"`;
+      return [t.id, t.date, t.time || "", t.merchant || "", t.description, cat, t.type, t.amount, t.currency,
+        t.paymentMethod, t.source, t.status].map(csvCell).join(",");
     }).join("\n");
 
     const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
@@ -246,6 +248,7 @@ export const TransactionsView: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div>
             <select
+              aria-label="Filter by category"
               value={selectedCategory}
               onChange={e => setSelectedCategory(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 text-gray-800 dark:text-slate-200 font-semibold outline-none cursor-pointer"
@@ -261,6 +264,7 @@ export const TransactionsView: React.FC = () => {
 
           <div>
             <select
+              aria-label="Filter by payment method"
               value={selectedPaymentMethod}
               onChange={e => setSelectedPaymentMethod(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 text-gray-800 dark:text-slate-200 font-semibold outline-none cursor-pointer"
@@ -276,6 +280,7 @@ export const TransactionsView: React.FC = () => {
 
           <div>
             <select
+              aria-label="Filter by source"
               value={selectedSource}
               onChange={e => setSelectedSource(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 text-gray-800 dark:text-slate-200 font-semibold outline-none cursor-pointer"

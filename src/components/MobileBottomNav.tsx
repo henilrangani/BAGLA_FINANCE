@@ -32,7 +32,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         onClick={() => setCurrentTab("dashboard")}
         className={`flex flex-col items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer ${
           currentTab === "dashboard"
-            ? "text-[#059669] dark:text-emerald-400"
+            ? "text-[#047857] dark:text-emerald-400"
             : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
         }`}
       >
@@ -45,7 +45,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         onClick={() => setCurrentTab("transactions")}
         className={`flex flex-col items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer ${
           currentTab === "transactions"
-            ? "text-[#059669] dark:text-emerald-400"
+            ? "text-[#047857] dark:text-emerald-400"
             : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
         }`}
       >
@@ -57,7 +57,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <div className="relative -top-5 flex flex-col items-center">
         <button
           onClick={() => setIsAddExpenseOpen(true)}
-          className="w-13 h-13 rounded-full bg-[#059669] hover:bg-[#047857] text-white flex items-center justify-center shadow-lg shadow-emerald-600/35 active:scale-95 transition-all border-4 border-[#F4F6F8] dark:border-slate-950 cursor-pointer"
+          className="w-13 h-13 rounded-full bg-[#047857] hover:bg-[#065f46] text-white flex items-center justify-center shadow-lg shadow-emerald-600/35 active:scale-95 transition-all border-4 border-[#F4F6F8] dark:border-slate-950 cursor-pointer"
           aria-label="Add Expense"
         >
           <Plus className="w-6 h-6 stroke-[3]" />
@@ -69,7 +69,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         onClick={() => setCurrentTab("groups")}
         className={`flex flex-col items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer ${
           currentTab === "groups"
-            ? "text-[#059669] dark:text-emerald-400"
+            ? "text-[#047857] dark:text-emerald-400"
             : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
         }`}
       >
@@ -84,7 +84,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           ["budgets", "family", "subscriptions", "cash", "analytics", "privacy", "admin"].includes(
             currentTab
           )
-            ? "text-[#059669] dark:text-emerald-400"
+            ? "text-[#047857] dark:text-emerald-400"
             : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
         }`}
       >

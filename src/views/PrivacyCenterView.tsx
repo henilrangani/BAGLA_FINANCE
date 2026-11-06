@@ -79,7 +79,7 @@ export const PrivacyCenterView: React.FC = () => {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2.5 mb-2">
-          <span className="text-xs font-bold uppercase tracking-widest text-[#059669] dark:text-emerald-400">
+          <span className="text-xs font-bold uppercase tracking-widest text-[#047857] dark:text-emerald-400">
             Privacy & Trust Architecture
           </span>
           <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800">
@@ -288,7 +288,7 @@ export const PrivacyCenterView: React.FC = () => {
         </div>
 
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs space-y-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-[#059669] dark:text-emerald-400 flex items-center justify-center font-bold border border-emerald-200/60 dark:border-emerald-800">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-[#047857] dark:text-emerald-400 flex items-center justify-center font-bold border border-emerald-200/60 dark:border-emerald-800">
             <EyeOff className="w-5 h-5" />
           </div>
           <h3 className="font-bold text-sm sm:text-base text-gray-950 dark:text-white">
@@ -316,7 +316,7 @@ export const PrivacyCenterView: React.FC = () => {
       <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs space-y-6">
         <div className="border-b border-gray-100 dark:border-slate-800 pb-5">
           <div className="flex items-center gap-2">
-            <Smartphone className="w-5 h-5 text-[#059669]" />
+            <Smartphone className="w-5 h-5 text-[#047857]" />
             <h2 className="text-base sm:text-lg font-bold text-gray-950 dark:text-white">
               UPI Security Deep Dive & Intent Inspector
             </h2>

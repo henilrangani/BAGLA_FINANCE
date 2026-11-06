@@ -344,7 +344,7 @@ export const GroupsView: React.FC = () => {
                     type="text"
                     value={newGroupEmoji}
                     onChange={e => setNewGroupEmoji(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-center text-lg font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-center text-lg font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
                     maxLength={2}
                   />
                 </div>
@@ -358,7 +358,7 @@ export const GroupsView: React.FC = () => {
                     placeholder="e.g. Manali Snow Trip, Flat 402, Team Chai"
                     value={newGroupName}
                     onChange={e => setNewGroupName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
                     required
                   />
                 </div>
@@ -373,7 +373,7 @@ export const GroupsView: React.FC = () => {
                   placeholder="e.g. 10 Sep – 15 Sep or Monthly shared flat bills"
                   value={newGroupDesc}
                   onChange={e => setNewGroupDesc(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
                 />
               </div>
 
@@ -386,7 +386,7 @@ export const GroupsView: React.FC = () => {
                   placeholder="e.g. Ravi, Meera"
                   value={newGroupMembers}
                   onChange={e => setNewGroupMembers(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
                   required
                 />
                 <span className="text-[10px] text-gray-400 mt-1 block">
@@ -403,14 +403,14 @@ export const GroupsView: React.FC = () => {
                   placeholder="30000"
                   value={newGroupBudget}
                   onChange={e => setNewGroupBudget(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
                 />
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
+                  className="w-full py-2.5 bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
                 >
                   Create Universal Group
                 </button>
@@ -433,14 +433,14 @@ export const GroupsView: React.FC = () => {
         </p>
         <button
           onClick={() => setIsNewGroupOpen(true)}
-          className="px-5 py-2.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
+          className="px-5 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           <span>Create Your First Group</span>
         </button>
         {accountMode && (
           <button onClick={() => setIsJoinOpen(true)}
-            className="block mx-auto text-xs font-bold text-[#059669] hover:underline cursor-pointer">
+            className="block mx-auto text-xs font-bold text-[#047857] hover:underline cursor-pointer">
             Have a code? Join a group
           </button>
         )}
@@ -496,13 +496,13 @@ export const GroupsView: React.FC = () => {
               onClick={() => setIsNewGroupOpen(true)}
               className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200/80 dark:border-slate-800 rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 transition-all"
             >
-              <Plus className="w-3.5 h-3.5 text-[#059669]" />
+              <Plus className="w-3.5 h-3.5 text-[#047857]" />
               <span>New Group</span>
             </button>
 
             <button
               onClick={() => setIsAddExpenseOpen(true)}
-              className="px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
+              className="px-4 py-2 bg-[#047857] hover:bg-[#065f46] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
               <span>+ Add Expense</span>
@@ -518,7 +518,7 @@ export const GroupsView: React.FC = () => {
               onClick={() => setSelectedGroupId(g.id)}
               className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
                 g.id === activeGroup.id
-                  ? "bg-[#059669] text-white shadow-sm ring-2 ring-emerald-500/30"
+                  ? "bg-[#047857] text-white shadow-sm ring-2 ring-emerald-500/30"
                   : "bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300 border border-gray-200/80 dark:border-slate-800 hover:border-emerald-300"
               }`}
             >
@@ -539,7 +539,7 @@ export const GroupsView: React.FC = () => {
       {/* Main Active Group Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
         {/* Cover Header */}
-        <div className="bg-gradient-to-r from-[#0B2240] via-[#0D3B66] to-[#059669] p-6 sm:p-8 text-white relative">
+        <div className="bg-gradient-to-r from-[#0B2240] via-[#0D3B66] to-[#047857] p-6 sm:p-8 text-white relative">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
@@ -623,7 +623,7 @@ export const GroupsView: React.FC = () => {
                   try { await linkGroupLedger(activeGroup.id); }
                   catch (e) { setLedgerError((e as Error).message); }
                   finally { setLedgerBusy(false); }
-                }} className="px-3 py-1.5 rounded-lg bg-[#059669] text-white font-bold disabled:opacity-60 cursor-pointer">
+                }} className="px-3 py-1.5 rounded-lg bg-[#047857] text-white font-bold disabled:opacity-60 cursor-pointer">
                   {ledgerBusy ? "Turning on…" : "Track my share"}
                 </button>
               </>
@@ -638,7 +638,7 @@ export const GroupsView: React.FC = () => {
             onClick={() => setActiveTab("overview")}
             className={`pb-3 border-b-2 transition-all cursor-pointer ${
               activeTab === "overview"
-                ? "border-[#059669] text-[#059669] dark:text-emerald-400"
+                ? "border-[#047857] text-[#047857] dark:text-emerald-400"
                 : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-slate-200"
             }`}
           >
@@ -648,7 +648,7 @@ export const GroupsView: React.FC = () => {
             onClick={() => setActiveTab("expenses")}
             className={`pb-3 border-b-2 transition-all cursor-pointer ${
               activeTab === "expenses"
-                ? "border-[#059669] text-[#059669] dark:text-emerald-400"
+                ? "border-[#047857] text-[#047857] dark:text-emerald-400"
                 : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-slate-200"
             }`}
           >
@@ -658,7 +658,7 @@ export const GroupsView: React.FC = () => {
             onClick={() => setActiveTab("members")}
             className={`pb-3 border-b-2 transition-all cursor-pointer ${
               activeTab === "members"
-                ? "border-[#059669] text-[#059669] dark:text-emerald-400"
+                ? "border-[#047857] text-[#047857] dark:text-emerald-400"
                 : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-slate-200"
             }`}
           >
@@ -693,7 +693,7 @@ export const GroupsView: React.FC = () => {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
                   You Paid
                 </span>
-                <span className="text-xl sm:text-2xl font-black text-[#059669] dark:text-emerald-400">
+                <span className="text-xl sm:text-2xl font-black text-[#047857] dark:text-emerald-400">
                   ₹{groupStats.youPaid.toLocaleString("en-IN")}
                 </span>
               </div>
@@ -716,7 +716,7 @@ export const GroupsView: React.FC = () => {
                 </span>
                 <span className={`text-xl sm:text-2xl font-black ${
                   groupStats.netBalance > 0
-                    ? "text-[#059669] dark:text-emerald-400"
+                    ? "text-[#047857] dark:text-emerald-400"
                     : groupStats.netBalance < 0
                     ? "text-rose-600 dark:text-rose-400"
                     : "text-gray-700 dark:text-slate-300"
@@ -781,7 +781,7 @@ export const GroupsView: React.FC = () => {
                                 {fromMember?.name || "Member"}
                               </span>
                               <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
-                              <span className={isCurrentUserReceiver ? "text-[#059669] font-black" : ""}>
+                              <span className={isCurrentUserReceiver ? "text-[#047857] font-black" : ""}>
                                 {toMember?.name || "Member"}
                               </span>
                             </div>
@@ -796,7 +796,7 @@ export const GroupsView: React.FC = () => {
                             isCurrentUserPayer
                               ? "text-rose-600 dark:text-rose-400"
                               : isCurrentUserReceiver
-                              ? "text-[#059669] dark:text-emerald-400"
+                              ? "text-[#047857] dark:text-emerald-400"
                               : "text-gray-900 dark:text-white"
                           }`}>
                             ₹{st.amount.toLocaleString("en-IN")}
@@ -814,7 +814,7 @@ export const GroupsView: React.FC = () => {
                                 settlementId: st.id
                               })
                             }
-                            className="px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
+                            className="px-3.5 py-1.5 rounded-xl bg-[#047857] hover:bg-[#065f46] text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
                           >
                             <QrCode className="w-3.5 h-3.5" />
                             <span>Settle</span>
@@ -885,7 +885,7 @@ export const GroupsView: React.FC = () => {
               </span>
               <button
                 onClick={() => setIsAddExpenseOpen(true)}
-                className="text-xs font-bold text-[#059669] hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-[#047857] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Expense</span>
@@ -918,7 +918,7 @@ export const GroupsView: React.FC = () => {
                         </h4>
                         <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5">
                           {exp.date} • Paid by{" "}
-                          <strong className={isPaidByMe ? "text-[#059669]" : ""}>
+                          <strong className={isPaidByMe ? "text-[#047857]" : ""}>
                             {payer?.name || "Member"}
                           </strong>
                           {" "}• Split among {exp.participants.length} people
@@ -1070,7 +1070,7 @@ export const GroupsView: React.FC = () => {
               <p className="text-[10px] text-gray-400 mt-1 line-clamp-2">
                 {tpl.description}
               </p>
-              <span className="text-[10px] font-bold text-[#059669] mt-2 block">
+              <span className="text-[10px] font-bold text-[#047857] mt-2 block">
                 + Create
               </span>
             </button>
@@ -1084,7 +1084,7 @@ export const GroupsView: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-gray-200 dark:border-slate-800 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
-                <QrCode className="w-5 h-5 text-[#059669]" />
+                <QrCode className="w-5 h-5 text-[#047857]" />
                 <span>Settle Payment</span>
               </h3>
               <button
@@ -1099,7 +1099,7 @@ export const GroupsView: React.FC = () => {
               <span className="text-xs font-semibold text-gray-500">
                 <strong>{settleModalData.fromName}</strong> pays <strong>{settleModalData.toName}</strong>
               </span>
-              <div className="text-3xl font-black text-[#059669] tracking-tight">
+              <div className="text-3xl font-black text-[#047857] tracking-tight">
                 ₹{settleModalData.amount.toLocaleString("en-IN")}
               </div>
               {settleModalData.upiId && (
@@ -1124,7 +1124,7 @@ export const GroupsView: React.FC = () => {
 
             <button
               onClick={handleConfirmSettlement}
-              className="w-full py-3 bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3 bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <Check className="w-4 h-4 stroke-[3]" />
               <span>Mark as Settled & Confirmed</span>
@@ -1162,7 +1162,7 @@ export const GroupsView: React.FC = () => {
                   placeholder="e.g. Seafood Dinner, Fuel, Airbnb Villa Booking"
                   value={expenseDesc}
                   onChange={e => setExpenseDesc(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
                   required
                 />
               </div>
@@ -1177,7 +1177,7 @@ export const GroupsView: React.FC = () => {
                     placeholder="e.g. 2400"
                     value={expenseAmount}
                     onChange={e => setExpenseAmount(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
                     required
                   />
                 </div>
@@ -1189,7 +1189,7 @@ export const GroupsView: React.FC = () => {
                   <select
                     value={paidByMemberId}
                     onChange={e => setPaidByMemberId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
                   >
                     {activeGroup.members.map(m => (
                       <option key={m.id} value={m.id}>
@@ -1236,7 +1236,7 @@ export const GroupsView: React.FC = () => {
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
+                  className="w-full py-3 bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
                 >
                   Save Group Expense
                 </button>

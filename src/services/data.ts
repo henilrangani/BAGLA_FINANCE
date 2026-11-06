@@ -30,7 +30,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: "cat-education", name: "Education & Courses", icon: "GraduationCap", color: "#14b8a6", defaultType: "expense", budgetLimit: 3000 },
   { id: "cat-healthcare", name: "Healthcare & Meds", icon: "HeartPulse", color: "#f43f5e", defaultType: "expense", budgetLimit: 3000 },
   { id: "cat-rent", name: "Rent & Housing", icon: "Home", color: "#64748b", defaultType: "expense", budgetLimit: 15000 },
-  { id: "cat-insurance", name: "Insurance", icon: "ShieldCheck", color: "#059669", defaultType: "expense", budgetLimit: 2500 },
+  { id: "cat-insurance", name: "Insurance", icon: "ShieldCheck", color: "#047857", defaultType: "expense", budgetLimit: 2500 },
   { id: "cat-subscriptions", name: "Subscriptions", icon: "Tv", color: "#a855f7", defaultType: "expense", budgetLimit: 2000 },
   { id: "cat-personal", name: "Personal Care", icon: "Sparkles", color: "#d946ef", defaultType: "expense", budgetLimit: 2000 },
   { id: "cat-family", name: "Family & Home", icon: "Users", color: "#f59e0b", defaultType: "expense", budgetLimit: 5000 },

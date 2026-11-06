@@ -6,7 +6,7 @@ import { formatINR } from "../utils/money";
 
 const card = "p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs space-y-4";
 const input = "w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500";
-const btn = "px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] disabled:opacity-50 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer";
+const btn = "px-4 py-2.5 rounded-xl bg-[#047857] hover:bg-[#065f46] disabled:opacity-50 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer";
 const ghost = "px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-700 text-xs font-bold text-gray-700 dark:text-slate-200 inline-flex items-center gap-2 cursor-pointer";
 
 /** Small loader hook with loading / error / retry. */

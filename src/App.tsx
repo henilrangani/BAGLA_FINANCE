@@ -54,7 +54,7 @@ function AppLockScreen() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-white font-sans">
       <div className="w-full max-w-sm p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-6">
-        <div className="w-16 h-16 rounded-3xl bg-[#059669]/15 text-[#059669] mx-auto flex items-center justify-center border border-[#059669]/30 shadow-lg">
+        <div className="w-16 h-16 rounded-3xl bg-[#047857]/15 text-[#047857] mx-auto flex items-center justify-center border border-[#047857]/30 shadow-lg">
           <Lock className="w-8 h-8" />
         </div>
         <div>
@@ -76,7 +76,7 @@ function AppLockScreen() {
               setError(null);
             }}
             placeholder="••••"
-            className={`w-40 mx-auto px-4 py-3 rounded-2xl bg-slate-800 border text-center font-mono text-2xl font-bold tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-[#059669] ${
+            className={`w-40 mx-auto px-4 py-3 rounded-2xl bg-slate-800 border text-center font-mono text-2xl font-bold tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-[#047857] ${
               error ? "border-rose-500 bg-rose-950/20 text-rose-300" : "border-slate-700"
             }`}
           />
@@ -85,7 +85,7 @@ function AppLockScreen() {
           <button
             type="submit"
             disabled={pin.length < 4 || checking}
-            className="w-full py-3.5 bg-[#059669] hover:bg-[#047857] disabled:opacity-50 text-white font-bold rounded-2xl text-sm transition-all shadow-lg shadow-emerald-600/25 cursor-pointer"
+            className="w-full py-3.5 bg-[#047857] hover:bg-[#065f46] disabled:opacity-50 text-white font-bold rounded-2xl text-sm transition-all shadow-lg shadow-emerald-600/25 cursor-pointer"
           >
             Unlock Ledger
           </button>

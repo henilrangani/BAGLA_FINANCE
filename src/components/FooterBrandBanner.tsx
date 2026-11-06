@@ -42,7 +42,7 @@ export const FooterBrandBanner: React.FC = () => {
                 className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-slate-300"
               >
                 <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-700 dark:text-slate-300 shrink-0">
-                  <Icon className="w-4 h-4 text-[#059669] dark:text-emerald-400" />
+                  <Icon className="w-4 h-4 text-[#047857] dark:text-emerald-400" />
                 </div>
                 <span className="whitespace-nowrap">{f.label}</span>
               </div>

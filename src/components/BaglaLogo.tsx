@@ -14,7 +14,7 @@ interface BaglaLogoProps {
  * - Stylized "B" with integrated Indian Rupee (₹) symbol on left stem
  * - Upward rising bar chart columns inside lower cavity
  * - Upward green growth arrow swoosh along bottom edge
- * - Deep navy (#0B2240) to emerald/teal (#00A86B / #10B981) gradient
+ * - Deep navy (#0B2240) to emerald/teal (#047857 / #10B981) gradient
  * - "BAGLA" in bold uppercase + "— FINANCE —" with flanking green accent lines
  * - Tagline: "Every Rupee. Clearly Managed."
  */
@@ -55,13 +55,13 @@ export const BaglaLogo: React.FC<BaglaLogoProps> = ({
         <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="80%">
           <stop offset="0%" stopColor="#0B2240" />
           <stop offset="45%" stopColor="#0D3B66" />
-          <stop offset="75%" stopColor="#00A86B" />
+          <stop offset="75%" stopColor="#047857" />
           <stop offset="100%" stopColor="#10B981" />
         </linearGradient>
 
         {/* Vibrant Emerald Gradient for Arrow & Bars */}
         <linearGradient id={arrowGradId} x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#059669" />
+          <stop offset="0%" stopColor="#047857" />
           <stop offset="100%" stopColor="#34D399" />
         </linearGradient>
       </defs>
@@ -213,7 +213,7 @@ export const BaglaLogo: React.FC<BaglaLogoProps> = ({
       ? "text-[#0B2240]"
       : "text-[#0B2240] dark:text-white";
 
-  const financeColor = "text-[#00A86B] dark:text-[#10B981]";
+  const financeColor = "text-[#047857] dark:text-[#10B981]";
   const taglineColor =
     theme === "dark"
       ? "text-slate-400"
@@ -231,13 +231,13 @@ export const BaglaLogo: React.FC<BaglaLogoProps> = ({
             BAGLA
           </span>
           <div className="flex items-center justify-center gap-2 mt-1 w-full">
-            <div className="h-[1.5px] flex-1 bg-[#00A86B] dark:bg-[#10B981] opacity-70" />
+            <div className="h-[1.5px] flex-1 bg-[#047857] dark:bg-[#10B981] opacity-70" />
             <span
               className={`font-black tracking-[0.25em] uppercase ${sizeConfig.subSize} ${financeColor}`}
             >
               FINANCE
             </span>
-            <div className="h-[1.5px] flex-1 bg-[#00A86B] dark:bg-[#10B981] opacity-70" />
+            <div className="h-[1.5px] flex-1 bg-[#047857] dark:bg-[#10B981] opacity-70" />
           </div>
           {showTagline && (
             <span

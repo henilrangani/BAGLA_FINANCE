@@ -154,3 +154,15 @@ export function parseStatementCsv(text: string): CsvParseResult {
 
   return result;
 }
+
+/**
+ * One CSV cell for export: always quoted, embedded quotes doubled, and text that a spreadsheet
+ * would run as a formula (=, +, -, @, tab, CR at the start) prefixed with ' (OWASP CSV injection).
+ * Numbers are written as plain numbers so they stay numeric.
+ */
+export function csvCell(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  let s = value == null ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}

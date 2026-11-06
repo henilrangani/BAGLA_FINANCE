@@ -170,7 +170,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
                   onClick={() => setSettings(prev => ({ ...prev, profileType: p }))}
                   className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer ${
                     settings.profileType === p
-                      ? "bg-emerald-50 dark:bg-emerald-950/50 text-[#059669] dark:text-emerald-400 font-bold"
+                      ? "bg-emerald-50 dark:bg-emerald-950/50 text-[#047857] dark:text-emerald-400 font-bold"
                       : "text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50"
                   }`}
                 >
@@ -212,7 +212,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
           {anomalies.length > 0 ? (
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
           ) : (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#059669] rounded-full" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#047857] rounded-full" />
           )}
         </button>
 
@@ -221,7 +221,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
           onClick={() => setIsAiChatOpen(true)}
           className="hidden md:flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-[#0B2240] dark:text-white bg-[#F4F6F8] dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
         >
-          <Sparkles className="w-3.5 h-3.5 text-[#059669]" />
+          <Sparkles className="w-3.5 h-3.5 text-[#047857]" />
           <span>Ask AI</span>
         </button>
 
@@ -242,7 +242,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
         <button
           id="btn-add-expense-header"
           onClick={() => setIsAddExpenseOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white bg-[#059669] hover:bg-[#047857] rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+          className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white bg-[#047857] hover:bg-[#065f46] rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>+ Add Expense</span>

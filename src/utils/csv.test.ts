@@ -59,3 +59,17 @@ describe("parseStatementCsv", () => {
     expect(r.rows.map(x => x.amount)).toEqual([10, 20]);
   });
 });
+
+describe("csvCell (export)", () => {
+  it("neutralises spreadsheet formulas and escapes quotes", async () => {
+    const { csvCell } = await import("./csv");
+    expect(csvCell('=HYPERLINK("http://x","click")')).toBe('"\'=HYPERLINK(""http://x"",""click"")"');
+    expect(csvCell("+91 98xxx")).toBe('"\'+91 98xxx"');
+    expect(csvCell("@SUM(A1)")).toBe('"\'@SUM(A1)"');
+    expect(csvCell("-2+3")).toBe('"\'-2+3"');
+    expect(csvCell('Say "hi"')).toBe('"Say ""hi"""');
+    expect(csvCell(1250.5)).toBe("1250.5");
+    expect(csvCell(-40)).toBe("-40"); // numbers stay numeric
+    expect(csvCell(undefined)).toBe('""');
+  });
+});

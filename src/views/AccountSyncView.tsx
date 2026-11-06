@@ -9,7 +9,7 @@ import { formatINR } from "../utils/money";
 
 const card = "p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs";
 const input = "w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500";
-const primary = "px-5 py-3 rounded-2xl bg-[#059669] hover:bg-[#047857] disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer";
+const primary = "px-5 py-3 rounded-2xl bg-[#047857] hover:bg-[#065f46] disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer";
 
 function SignInForm() {
   const [mode, setMode] = useState<"login" | "register">("login");

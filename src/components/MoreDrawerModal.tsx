@@ -28,7 +28,7 @@ export const MoreDrawerModal: React.FC<MoreDrawerModalProps> = ({
   if (!isOpen) return null;
 
   const moreItems = [
-    { id: "budgets", label: "Budgets & Goals", desc: "Monthly limits & financial goals", icon: PieChart, color: "text-[#059669]" },
+    { id: "budgets", label: "Budgets & Goals", desc: "Monthly limits & financial goals", icon: PieChart, color: "text-[#047857]" },
     { id: "subscriptions", label: "Recurring & Subs", desc: "Auto-renewals & bills", icon: Repeat, color: "text-purple-500" },
     { id: "cash", label: "Cash Wallet", desc: "Physical currency tracker", icon: Wallet, color: "text-amber-500" },
     { id: "family", label: "Family Space", desc: "Household shared budgets", icon: Users, color: "text-blue-500" },

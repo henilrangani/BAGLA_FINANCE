@@ -77,14 +77,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
               }}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isActive
-                  ? "bg-[#E8F7F0] dark:bg-emerald-950/40 text-[#059669] dark:text-emerald-400 shadow-xs"
+                  ? "bg-[#E8F7F0] dark:bg-emerald-950/40 text-[#047857] dark:text-emerald-400 shadow-xs"
                   : "text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800/60 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               <div className="flex items-center gap-3">
                 <Icon
                   className={`w-4 h-4 ${
-                    isActive ? "text-[#059669] dark:text-emerald-400" : "text-gray-400 dark:text-slate-500"
+                    isActive ? "text-[#047857] dark:text-emerald-400" : "text-gray-400 dark:text-slate-500"
                   }`}
                 />
                 <span>{item.label}</span>
@@ -102,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
       {/* Go Premium Upgrade Card (as in Image 2) */}
       <div className="p-4 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-800/80 dark:to-slate-850 border border-gray-200/80 dark:border-slate-700/60 space-y-2">
         <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900 dark:text-white">
-          <Zap className="w-3.5 h-3.5 text-[#059669]" />
+          <Zap className="w-3.5 h-3.5 text-[#047857]" />
           <span>Go Premium</span>
         </div>
         <p className="text-[11px] text-gray-500 dark:text-slate-400 leading-snug font-medium">
@@ -110,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
         </p>
         <button
           onClick={() => setCurrentTab("admin")}
-          className="w-full py-2 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+          className="w-full py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
         >
           <span>Upgrade Now</span>
           <ArrowRight className="w-3 h-3" />
@@ -122,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
         onClick={() => setCurrentTab("privacy")}
       >
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#0B2240] to-[#00A86B] p-0.5 shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#0B2240] to-[#047857] p-0.5 shadow-sm">
             <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center font-bold text-xs text-[#0B2240] dark:text-emerald-400">
               HB
             </div>
@@ -131,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
             <div className="text-xs font-bold text-gray-900 dark:text-white leading-tight">
               {settings.name || "Your profile"}
             </div>
-            <div className="text-[10px] text-[#059669] dark:text-emerald-400 font-semibold">
+            <div className="text-[10px] text-[#047857] dark:text-emerald-400 font-semibold">
               Premium User
             </div>
           </div>

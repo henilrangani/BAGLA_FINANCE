@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+/* Accessibility (WCAG 2.1 AA, 4.5:1 for normal text): Tailwind's default gray-400/500 are too
+   light on white and light-grey cards; these keep the same look, slightly darker. Brand green
+   is #047857 (emerald-700) for the same reason; see TEST_REPORT (axe colour-contrast). */
+@theme {
+  --color-gray-400: #646b77;
+  --color-gray-500: #555c68;
+  /* Text tones that were 3.4-4.2:1 on white/tinted cards. */
+  --color-emerald-600: #047857;
+  --color-rose-500: #d1003b;
+  --color-rose-600: #b8002f;
+  --color-indigo-500: #4f46e5;
+}
