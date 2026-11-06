@@ -135,3 +135,25 @@ test("every global dialog can be closed with its X button and with Escape", asyn
     await expect(d).toBeHidden();
   }
 });
+
+test("closing one dialog and opening another straight away keeps the new one open (slow history)", async ({ page }) => {
+  // Reproduces what happened on the CI runner: the closed dialog's own history clean-up (history.back)
+  // lands after the next dialog has opened. Here the traversal is delayed on purpose.
+  await page.addInitScript(() => {
+    const back = history.back.bind(history);
+    history.back = () => { setTimeout(back, 300); };
+  });
+  await openApp(page);
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole("button", { name: /AI Assistant/ }).first().click();
+    await expect(page.getByRole("dialog", { name: "Bagla AI Assistant" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "+ Expense", exact: true }).click();
+    const add = page.getByRole("dialog", { name: "Record Transaction" });
+    await expect(add).toBeVisible();
+    await page.waitForTimeout(700); // the delayed traversal arrives in this window
+    await expect(add).toBeVisible();
+    await add.getByRole("button", { name: "Close" }).click();
+    await expect(add).toBeHidden();
+  }
+});

@@ -33,6 +33,18 @@ if (typeof document !== "undefined") {
 const isTop = (id: string) => stack[stack.length - 1] === id;
 export const openModalCount = () => stack.length;
 
+// A closed dialog removes its own history entry with history.back(). That traversal is asynchronous, so
+// its popstate can arrive after the person has already opened another dialog; it must not be mistaken for
+// the person pressing Back. Each self-initiated back() is counted and its popstate is marked as ignorable
+// by a listener that runs before all others (registered at module load, capture phase).
+let selfBacks = 0;
+export const isSelfInitiatedPop = (e: PopStateEvent) => (e as PopStateEvent & { baglaSelf?: boolean }).baglaSelf === true;
+if (typeof window !== "undefined") {
+  window.addEventListener("popstate", e => {
+    if (selfBacks > 0) { selfBacks -= 1; (e as PopStateEvent & { baglaSelf?: boolean }).baglaSelf = true; }
+  }, true);
+}
+
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 interface Props {
@@ -75,7 +87,7 @@ export function Modal({ onClose, dirty = false, onSave, labelledBy, label, class
 
     const onPop = (e: PopStateEvent) => {
       // Landing on our own entry (a child dialog closed, or a StrictMode remount) is not a "Back" for us.
-      if (e.state?.baglaModal === id || !isTop(id)) return;
+      if (isSelfInitiatedPop(e) || e.state?.baglaModal === id || !isTop(id)) return;
       if (dirtyRef.current) {
         // Back must not lose typed data: restore our entry and ask.
         try { history.pushState({ ...(history.state || {}), baglaModal: id }, ""); } catch { /* ignore */ }
@@ -99,7 +111,7 @@ export function Modal({ onClose, dirty = false, onSave, labelledBy, label, class
       if (!poppedRef.current) {
         setTimeout(() => {
           if (!stack.includes(id) && history.state?.baglaModal === id) {
-            try { history.back(); } catch { /* ignore */ }
+            try { selfBacks += 1; history.back(); } catch { selfBacks = Math.max(0, selfBacks - 1); }
           }
         }, 0);
       }

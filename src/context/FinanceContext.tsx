@@ -49,7 +49,7 @@ import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGrou
 
 export interface GroupKind { groupType?: GroupType; groupLabel?: string }
 import type { AccountRefs } from "../api/mappers";
-import { openModalCount } from "../components/ui/Modal";
+import { isSelfInitiatedPop, openModalCount } from "../components/ui/Modal";
 
 interface FinanceContextType {
   // State
@@ -366,7 +366,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     try { if (!history.state?.tab) history.replaceState({ ...(history.state || {}), tab: currentTabRef.current }, ""); } catch { /* ignore */ }
     const onPop = (e: PopStateEvent) => {
-      if (openModalCount() > 0) return;
+      if (isSelfInitiatedPop(e) || openModalCount() > 0) return;
       const tab = e.state?.tab;
       if (typeof tab === "string") setTabState(tab);
     };
