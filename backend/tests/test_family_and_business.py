@@ -180,3 +180,24 @@ def test_entitlement_rules():
     assert entitlement(canceled, plans, t0 + timedelta(days=4))["has_access"] is False
     assert entitlement(None, plans, t0)["plan"] == "free"
     assert select  # imported for parity with other tests
+
+
+async def test_expired_or_reused_family_invite_is_refused(client):
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import update
+
+    from app.core.database import get_db
+    from app.models import FamilyInvite
+
+    admin = await register(client, "admin2@example.com")
+    late = await register(client, "late@example.com")
+    fid = (await client.post(f"{API}/families", headers=auth(admin), json={"name": "Shah family"})).json()["id"]
+    inv = await client.post(f"{API}/families/{fid}/invites", headers=auth(admin), json={"role": "adult"})
+    tok = inv.json()["token"]
+    async for db in get_db():  # the invite is now 8 days old
+        await db.execute(update(FamilyInvite).values(expires_at=datetime.now(timezone.utc) - timedelta(days=1)))
+        await db.commit()
+    r = await client.post(f"{API}/families/invites/accept", headers=auth(late), json={"token": tok})
+    assert r.status_code == 400 and "expired" in r.text
+    assert (await client.get(f"{API}/families/{fid}", headers=auth(late))).status_code == 404  # still no access
