@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { apiGet, apiLogin, expectGreeting, nav, newUser, signInViaUI, signUpViaUI } from "./helpers";
+import { API, apiGet, apiLogin, expectGreeting, nav, newUser, signInViaUI, signUpViaUI } from "./helpers";
 
 test("registration, sign-in on a fresh browser, and session survives reload", async ({ page, browser, request }) => {
   const u = newUser("Asha Test");
@@ -11,7 +12,7 @@ test("registration, sign-in on a fresh browser, and session survives reload", as
   expect(rt?.httpOnly).toBe(true);
   expect(rt?.path).toBe("/api/v1/auth");
   // SameSite as sent by the server (WebKit's cookie API reports "None" on some platforms).
-  const r = await page.request.post("http://127.0.0.1:8010/api/v1/auth/login", {
+  const r = await page.request.post(`${API}/api/v1/auth/login`, {
     headers: { "X-Bagla-Client": "web" }, data: { email: u.email, password: u.password } });
   expect(r.headers()["set-cookie"]).toMatch(/bagla_rt=.*HttpOnly.*SameSite=lax/i);
   expect(await page.evaluate(() => document.cookie)).not.toContain("bagla_rt");
@@ -43,4 +44,23 @@ test("wrong password is refused with a clear message", async ({ page, request })
   await expect(p2.getByRole("alert")).toBeVisible();
   await ctx.close();
   void request;
+});
+
+test("signed-in user can download a complete export of their account data", async ({ page, request }) => {
+  const u = newUser("Kavya Test");
+  await signUpViaUI(page, u);
+  const token = await apiLogin(request, u);
+  await nav(page, "Account & Sync");
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download (.json)" }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^bagla-account-export-\d{4}-\d{2}-\d{2}\.json$/);
+  const file = await download.path();
+  const data = JSON.parse(readFileSync(file, "utf8"));
+  expect(data.format).toBe("bagla-finance-export/1");
+  expect(data.user.email).toBe(u.email);
+  expect(JSON.stringify(data)).not.toMatch(/password_hash|refresh_token/);
+  const accounts = await apiGet(request, token, "/api/v1/accounts");
+  expect(data.accounts.map((a: any) => a.id).sort()).toEqual(accounts.map((a: any) => a.id).sort());
 });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { apiGet, apiLogin, expectGreeting, nav, newUser, signUpViaUI } from "./helpers";
+import { API, apiGet, apiLogin, expectGreeting, nav, newUser, signUpViaUI } from "./helpers";
 
 const PROFILE_KEY = "bagla_active_profile_v1";
 
@@ -60,10 +60,10 @@ test("expired session: the app says so, keeps local changes, and signing in agai
 
 test("an old-version session token in storage is upgraded to the cookie once and removed", async ({ page, context, request }) => {
   const u = newUser("Upgrade Test");
-  const r = await request.post("http://127.0.0.1:8010/api/v1/auth/register", {
+  const r = await request.post(`${API}/api/v1/auth/register`, {
     data: { email: u.email, password: u.password, full_name: u.name } });
   const legacy = (await r.json()).refresh_token as string; // API-style body token, as older app versions stored
-  const me = await (await request.get("http://127.0.0.1:8010/api/v1/users/me",
+  const me = await (await request.get(`${API}/api/v1/users/me`,
     { headers: { Authorization: `Bearer ${(await r.json()).access_token}` } })).json();
   await page.goto("/");
   await page.evaluate(([t, id, email, key]) => {

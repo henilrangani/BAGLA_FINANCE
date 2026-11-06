@@ -97,15 +97,14 @@ export const LivePaymentHubModal: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-black text-base text-gray-950 dark:text-white">
-                  Live Payment Sync & Auto-Ingestion Hub
+                  Payment sync demo (simulated)
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  Live Active
+                  Simulation
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
-                Automatic ledger entry whenever an online UPI, Card, or NetBanking spend occurs.
+                A preview of a possible future feature. Not connected to any payment app or bank.
               </p>
             </div>
           </div>
@@ -119,60 +118,11 @@ export const LivePaymentHubModal: React.FC = () => {
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {/* Active Connector Channels */}
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 block mb-3">
-              Connected Online Payment Streamers
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/60 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="font-bold text-gray-900 dark:text-white">Google Pay (GPay)</span>
-                </div>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Listening</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/60 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="font-bold text-gray-900 dark:text-white">PhonePe</span>
-                </div>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Listening</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/60 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="font-bold text-gray-900 dark:text-white">Paytm UPI / Bank</span>
-                </div>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Listening</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/60 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="font-bold text-gray-900 dark:text-white">CRED / Amazon</span>
-                </div>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Listening</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/60 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="font-bold text-gray-900 dark:text-white">Bank SMS Parser</span>
-                </div>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Listening</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/60 border border-indigo-200/80 dark:border-indigo-800/60 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-                  <span className="font-bold text-gray-900 dark:text-white">Account Aggregator</span>
-                </div>
-                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">Synced</span>
-              </div>
-            </div>
+          {/* Honest status: nothing is connected */}
+          <div role="note" className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 font-medium">
+            <strong>Simulation only.</strong> No bank, card, UPI app, SMS inbox or Account Aggregator is connected to Bagla Finance,
+            and nothing is read from your accounts. The buttons below add clearly labelled sample entries on this device so you can
+            see how automatic entries could look. Sample entries are not sent to your account.
           </div>
 
           {/* 1-Tap Live Simulation Triggers */}
@@ -180,12 +130,12 @@ export const LivePaymentHubModal: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-emerald-400" />
-                1-Tap Live Incoming Payment Simulator
+                Sample payment simulator
               </span>
-              <span className="text-[10px] text-slate-400">Instant real-time test</span>
+              <span className="text-[10px] text-slate-400">Creates a sample entry</span>
             </div>
             <p className="text-xs text-slate-300 font-medium">
-              Click any sample payment below to test instant automatic ledger recording without manual input:
+              Click a sample payment to add a simulated entry on this device:
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
@@ -242,7 +192,7 @@ export const LivePaymentHubModal: React.FC = () => {
           {/* Custom Simulation Form */}
           <form onSubmit={handleSimulate} className="p-5 rounded-3xl bg-gray-50 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 space-y-4">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 block">
-              Simulate Custom Incoming Online Payment
+              Simulate a custom sample payment
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -304,7 +254,7 @@ export const LivePaymentHubModal: React.FC = () => {
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
             >
               <Zap className="w-4 h-4" />
-              <span>Simulate Real-Time Ingestion (Auto-Record)</span>
+              <span>Add simulated entry</span>
             </button>
           </form>
 
@@ -313,7 +263,7 @@ export const LivePaymentHubModal: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
                 <Building className="w-4 h-4 text-indigo-500" />
-                Live Webhook Ingestion API Endpoint
+                Developer webhook endpoint (not connected)
               </span>
               <button
                 type="button"
@@ -328,7 +278,7 @@ export const LivePaymentHubModal: React.FC = () => {
               {webhookEndpoint}
             </p>
             <p className="text-[11px] text-gray-500 dark:text-slate-400">
-              External SMS forwarding apps (like SMS to Webhook or Account Aggregator webhooks) can POST directly to this endpoint.
+              For developers only. It is disabled unless the server has a WEBHOOK_SECRET configured, and no bank, SMS or Account Aggregator service sends data to it.
             </p>
           </div>
         </div>

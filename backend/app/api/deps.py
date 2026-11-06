@@ -73,3 +73,6 @@ class RateLimiter:
 
 
 auth_limiter = RateLimiter(limit=get_settings().auth_rate_limit, window_seconds=15 * 60)
+# Refresh needs a valid random token (nothing to guess), and every page load refreshes. Its own bucket keeps
+# a household or office on one IP from locking each other out, while password guessing stays at the limit above.
+refresh_limiter = RateLimiter(limit=get_settings().refresh_rate_limit, window_seconds=15 * 60)

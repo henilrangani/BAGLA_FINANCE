@@ -1,0 +1,91 @@
+# BAGLA FINANCE local release stack (beta release candidate).
+# Separate project, network and volume: it never touches any other database on this machine.
+# Start:  docker compose -f compose.release.yaml --env-file .env.release up -d --build
+# Stop:   docker compose -f compose.release.yaml --env-file .env.release stop   (data is kept)
+# NEVER add "-v" to "down": that deletes the bagla_rc_pgdata volume and every record in it.
+name: bagla_rc
+
+x-api-env: &api_env
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bagla_rc}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.release}@db:5432/${POSTGRES_DB:-bagla_beta_rc}
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.release (at least 32 random characters)}
+  ENVIRONMENT: staging
+  CORS_ORIGINS: http://localhost:${APP_PORT:-8080},http://127.0.0.1:${APP_PORT:-8080}
+  # Only the gateway container can reach the API, so trust its X-Forwarded-For (per-client rate limits).
+  FORWARDED_ALLOW_IPS: "*"
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bagla_beta_rc}
+      POSTGRES_USER: ${POSTGRES_USER:-bagla_rc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.release}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    # Not published to the host: only containers on this stack's network can reach it.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    build: { context: ./backend }
+    image: bagla_rc-backend
+    command: ["alembic", "upgrade", "head"]
+    environment: *api_env
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    image: bagla_rc-backend
+    environment: *api_env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  scheduler:
+    # Reminder job every 15 minutes (the job takes a single-run lock). In-app reminders only; email is not connected.
+    image: bagla_rc-backend
+    command: ["sh", "-c", "while true; do python -m app.jobs.reminders || true; sleep 900; done"]
+    environment: *api_env
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+  web:
+    build: { context: ., dockerfile: deploy/release/Dockerfile.web }
+    image: bagla_rc-web
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      TRUST_PROXY: "1"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.7-flash}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  gateway:
+    # One origin for the browser: the app at /, the API at /api/v1 (required by the cookie and CSP design).
+    image: nginx:1.27-alpine
+    volumes: ["./deploy/release/nginx.conf:/etc/nginx/conf.d/default.conf:ro"]
+    ports: ["127.0.0.1:${APP_PORT:-8080}:8080"]
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  # Created as bagla_rc_pgdata (project name + _pgdata). Removing it deletes all release data.
+  pgdata:

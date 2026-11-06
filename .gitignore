@@ -6,6 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+!.env.release.example
 
 # Local test artifacts (never commit)
 test-results/
@@ -15,3 +16,7 @@ e2e/.auth/
 creds*.txt
 *.e2e.db
 playwright-output/
+
+# Local release stack
+.env.release
+backups/

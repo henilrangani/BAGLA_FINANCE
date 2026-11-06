@@ -11,7 +11,7 @@ Access tokens are short-lived bearer tokens held in memory by the client.
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import CurrentUser, auth_limiter, get_current
+from app.api.deps import CurrentUser, auth_limiter, get_current, refresh_limiter
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.schemas.auth import ChangePasswordRequest, LoginRequest, RefreshRequest, RegisterRequest, TokenPair
@@ -78,7 +78,7 @@ async def login(payload: LoginRequest, request: Request, response: Response, db:
     return _respond(request, response, tokens)
 
 
-@router.post("/refresh", response_model=TokenPair, dependencies=[Depends(auth_limiter)])
+@router.post("/refresh", response_model=TokenPair, dependencies=[Depends(refresh_limiter)])
 async def refresh(request: Request, response: Response, payload: RefreshRequest | None = None,
                   db: AsyncSession = Depends(get_db)):
     token = payload.refresh_token if payload else None

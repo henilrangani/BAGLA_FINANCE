@@ -1402,8 +1402,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       amount: Math.abs(amount),
       type: "expense",
       currency: "INR",
-      merchant,
-      description: `Auto-recorded via ${provider} webhook sync`,
+      merchant: `${merchant} (simulated)`,
+      description: `Simulated sample entry (${provider} demo). Not a real payment.`,
       categoryId,
       date: todayStr,
       time: nowTime,
@@ -1411,7 +1411,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       source: "connected",
       status: "verified",
       confidence: 0.99,
-      tags: ["auto-sync", provider.toLowerCase(), "webhook"],
+      tags: ["simulated", "demo"],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

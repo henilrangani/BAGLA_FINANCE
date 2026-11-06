@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { apiGet, apiLogin, nav, newUser, signUpViaUI } from "./helpers";
+import { API, apiGet, apiLogin, nav, newUser, signUpViaUI } from "./helpers";
 
 function isoDaysAgo(n: number) {
   const d = new Date(Date.now() - n * 86_400_000);
@@ -35,7 +35,7 @@ test("recurring bills: add, monthly total, mark paid once, skip, edit, pause/res
   expect(tx.map((t: any) => t.amount_paise)).toEqual([12000]);
   const bill = (await apiGet(request, token, "/api/v1/recurring"))[0];
   const paidDate = bill.history.find((h: any) => h.status === "paid").due_date;
-  const again = await request.post(`http://127.0.0.1:8010/api/v1/recurring/${bill.id}/occurrences/${paidDate}/pay`,
+  const again = await request.post(`${API}/api/v1/recurring/${bill.id}/occurrences/${paidDate}/pay`,
     { headers: { Authorization: `Bearer ${token}` }, data: {} });
   expect(again.status()).toBe(200);
   expect((await apiGet(request, token, "/api/v1/transactions?status=posted")).items.length).toBe(1);

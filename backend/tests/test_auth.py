@@ -72,6 +72,23 @@ async def test_ip_rate_limit_on_auth(client):
     assert "Retry-After" in r.headers
 
 
+async def test_refresh_has_its_own_limit_so_page_loads_do_not_block_sign_in(client):
+    """Many page loads (each refreshes) from one household IP must not lock out sign-in, and vice versa."""
+    h = await register(client)
+    token = h["_refresh"]
+    for _ in range(25):  # more than the 20-attempt sign-in limit
+        r = await client.post("/api/v1/auth/refresh", json={"refresh_token": token})
+        assert r.status_code == 200
+        token = r.json()["refresh_token"]
+    r = await client.post("/api/v1/auth/login", json={"email": "asha@example.com", "password": PASSWORD})
+    assert r.status_code == 200
+    # Sign-in guessing is still capped at 20 per IP even though refreshes are counted separately.
+    for i in range(19):
+        await client.post("/api/v1/auth/login", json={"email": f"z{i}@example.com", "password": "whatever-123"})
+    r = await client.post("/api/v1/auth/login", json={"email": "z@example.com", "password": "whatever-123"})
+    assert r.status_code == 429
+
+
 async def test_refresh_rotates_and_reuse_revokes_everything(client):
     h = await register(client)
     old = h["_refresh"]

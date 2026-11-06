@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { nav, newUser, signUpViaUI } from "./helpers";
+import { nav, newUser, openApp, signUpViaUI } from "./helpers";
 
 const SCREENS: [string, RegExp][] = [
   ["Dashboard", /Good (morning|afternoon|evening)/],
@@ -77,4 +77,16 @@ test("dark mode: the theme toggle works and every main screen passes the WCAG A/
   }
   console.log("DARK_AXE", JSON.stringify(report), "bg", bg);
   expect(report).toEqual({});
+});
+
+test("payment sync demo is labelled as a simulation and claims no live connection", async ({ page }) => {
+  await openApp(page);
+  await page.getByRole("button", { name: "Sync Demo" }).click();
+  await expect(page.getByRole("heading", { name: "Payment sync demo (simulated)" })).toBeVisible();
+  await expect(page.getByRole("note")).toContainText("No bank, card, UPI app, SMS inbox or Account Aggregator is connected");
+  await expect(page.getByText(/Listening|Live Active|Synced/)).toHaveCount(0);
+  await page.getByRole("button", { name: /Swiggy Lunch/ }).click();
+  await page.keyboard.press("Escape");
+  await nav(page, "Transactions");
+  await expect(page.getByText(/Swiggy Restaurant \(simulated\)/).first()).toBeVisible();
 });

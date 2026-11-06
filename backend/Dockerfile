@@ -6,6 +6,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini .
+COPY scripts ./scripts
 RUN useradd --create-home --uid 10001 bagla
 USER bagla
 EXPOSE 8000

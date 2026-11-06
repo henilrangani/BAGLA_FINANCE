@@ -1,5 +1,32 @@
 # Known Limitations
 
+## Current: beta release candidate (2026-11-06)
+This section is authoritative. The dated sections below are history and some of their items have since been fixed.
+
+**Not built, and not claimed:**
+- **No payment initiation.** Bagla never moves money. UPI buttons only open your own UPI app with details for you to confirm. No payment gateway or paid plans; the billing API has no plans configured.
+- **No bank, card, UPI, SMS or Account Aggregator connection.** The "Sync Demo" is a labelled simulation that adds sample entries on the device only. Statement import (CSV/XLSX) is the only way bank data gets in.
+- **No email delivery.** No provider is connected. Email reminders, invite emails, password reset and email verification are unavailable, and the app says so. Reminders are in-app only.
+- **AI unverified live.** No Gemini key has been tested. The model name `gemini-3.7-flash` and its pricing are unverified. Without a key, rule-based fallbacks answer. AI is advisory only and has no access to the ledger.
+- **No legal or regulatory certification.** No RBI/NPCI authorisation, DPDP audit or penetration test. The privacy notice and terms are drafts for counsel.
+- Hindi and Gujarati UI: not built (English only; the `locale` field exists).
+- Simple Mode: not built. The header's accessibility menu ("Standard / Child / Elder / Pro") only changes presentation, and isn't a verified Simple/Pro product mode.
+- PDF statement import; refund, reversal and transfer creation in the UI (API only); server-side variance and cash-flow reports; MFA.
+
+**Local release package:**
+- Runs over plain `http://localhost`. The `Secure` sign-in cookie works there in Chrome, Edge and Firefox, but **not in Safari/WebKit**. The hosted beta must use HTTPS.
+- Sign-in attempts are limited to 20 per 15 minutes per IP address (production setting). Session refreshes have their own limit of 120 per 15 minutes. Rate limits reset when the API restarts (in-memory).
+- `/health/jobs` returns 503 for up to a minute after the first start, until the reminder job has run once.
+- The demo seed creates one synthetic account (`demo-…@example.com`). It is not removed automatically; delete it from the app if unwanted.
+- Docker image builds need about 3 GB on the Docker drive. Each rebuild leaves the old layers behind until you clean them up.
+
+**Verification gaps:** see `RELEASE_TEST_REPORT.md` → "Not tested".
+- Real Safari on macOS/iOS and real phones.
+- Screen readers.
+- Production-scale load.
+- Hosted infrastructure.
+
+## History
 _As of 2026-11-04, after Phase 2 batch 2._
 
 ## Backend (new)

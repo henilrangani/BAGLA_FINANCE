@@ -36,6 +36,7 @@ async def fresh_db():
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
     deps.auth_limiter.hits.clear()
+    deps.refresh_limiter.hits.clear()
     yield
     # pytest-asyncio gives every test its own event loop and closes it afterwards.
     # Pooled asyncpg connections belong to the loop that opened them, so the pool

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { AlertTriangle, CheckCircle2, CloudUpload, Loader2, LogOut, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CloudUpload, Download, Loader2, LogOut, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
 import { useFinance } from "../context/FinanceContext";
-import { ApiError, auth } from "../api/client";
+import { ApiError, api, auth } from "../api/client";
 import { activeProfile, setActiveProfile } from "../api/profile";
 import { migrateLocalData, type MigrationReport } from "../api/sync";
-import { deviceTimeZone } from "../utils/dates";
+import { deviceTimeZone, localDateString } from "../utils/dates";
 import { formatINR } from "../utils/money";
 
 const card = "p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs";
@@ -126,6 +126,45 @@ function MigrationPanel() {
   );
 }
 
+function ExportPanel() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const download = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const data = await api("GET", "/api/v1/users/me/export");
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bagla-account-export-${localDateString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't download your data. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={`${card} space-y-3`}>
+      <h3 className="font-bold text-gray-950 dark:text-white flex items-center gap-2"><Download className="w-5 h-5 text-emerald-600" /> Download my account data</h3>
+      <p className="text-xs text-gray-500 dark:text-slate-400">
+        Everything your account holds on the server (profile, accounts, entries, budgets, goals, bills, groups, family
+        spaces, reminders and history) as one JSON file. The file is not encrypted; keep it somewhere safe.
+      </p>
+      <button onClick={download} disabled={busy} className={primary}>
+        {busy && <Loader2 className="w-4 h-4 animate-spin" />} Download (.json)
+      </button>
+      {error && <p role="alert" className="text-xs font-semibold text-rose-600">{error}</p>}
+    </div>
+  );
+}
+
 export const AccountSyncView: React.FC = () => {
   const { cloud, syncNow } = useFinance();
   const [leaving, setLeaving] = useState(false);
@@ -189,8 +228,10 @@ export const AccountSyncView: React.FC = () => {
         </div>
       </div>
       <MigrationPanel />
+      <ExportPanel />
       <p className="text-[11px] text-gray-400 flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" />
-        Group splits, recurring bills and the family space shown on other screens are still stored on this device only.</p>
+        Entries, budgets, goals, groups, bills and family spaces are saved to your account. The cash-wallet
+        denomination register is still stored on this device only.</p>
     </div>
   );
 };

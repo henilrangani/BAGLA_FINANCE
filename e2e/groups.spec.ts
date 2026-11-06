@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { acceptNextDialog, apiGet, apiLogin, nav, newUser, signInViaUI, signUpViaUI } from "./helpers";
+import { API, acceptNextDialog, apiGet, apiLogin, nav, newUser, signInViaUI, signUpViaUI } from "./helpers";
 
 async function groupDetail(request: any, token: string) {
   const list = await apiGet(request, token, "/api/v1/groups");
@@ -68,7 +68,7 @@ test("group split, invitation to a second account, settlement and a safe void", 
   await expect(rp.getByText("Goa Trip").first()).toBeVisible();
   // The code is single-use.
   const rTok = await apiLogin(request, ravi);
-  const reuse = await request.post("http://127.0.0.1:8010/api/v1/groups/claim", {
+  const reuse = await request.post(`${API}/api/v1/groups/claim`, {
     headers: { Authorization: `Bearer ${rTok}` }, data: { token: code } });
   expect(reuse.status()).toBe(400);
 

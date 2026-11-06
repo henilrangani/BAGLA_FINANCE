@@ -283,11 +283,11 @@ export const INITIAL_GOA_GROUP: Group = {
   createdAt: "2026-08-20",
   inviteCode: "GOA-FRIENDS-2026",
   members: [
-    { id: "m-amit", name: "Amit", upiId: "amitv@icici", phone: "+91 97890 55667" },
-    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, phone: "+91 98765 43210" },
-    { id: "m-rahul", name: "Rahul", upiId: "rahul@okaxis", phone: "+91 98234 11223" },
-    { id: "m-jay", name: "Jay", upiId: "jayp@paytm", phone: "+91 99123 44556" },
-    { id: "m-dev", name: "Dev", upiId: "devt@ybl", phone: "+91 96543 77889" }
+    { id: "m-amit", name: "Amit" },
+    { id: "m-henil", name: "You", isCurrentUser: true },
+    { id: "m-rahul", name: "Rahul" },
+    { id: "m-jay", name: "Jay" },
+    { id: "m-dev", name: "Dev" }
   ],
   expenses: [
     {
@@ -413,10 +413,10 @@ export const INITIAL_FLATMATES_GROUP: Group = {
   createdAt: "2026-08-01",
   inviteCode: "FLAT402-ROOMS",
   members: [
-    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, phone: "+91 98765 43210" },
-    { id: "m-pritesh", name: "Pritesh", upiId: "pritesh@okaxis", phone: "+91 98111 22334" },
-    { id: "m-aman", name: "Aman", upiId: "aman@paytm", phone: "+91 99222 33445" },
-    { id: "m-rohan", name: "Rohan", upiId: "rohan@ybl", phone: "+91 97333 44556" }
+    { id: "m-henil", name: "You", isCurrentUser: true },
+    { id: "m-pritesh", name: "Pritesh" },
+    { id: "m-aman", name: "Aman" },
+    { id: "m-rohan", name: "Rohan" }
   ],
   expenses: [
     {
@@ -491,10 +491,10 @@ export const INITIAL_OFFICE_GROUP: Group = {
   createdAt: "2026-08-10",
   inviteCode: "OFFICE-CHAI-TEAM",
   members: [
-    { id: "m-henil", name: "Henil (You)", isCurrentUser: true, phone: "+91 98765 43210" },
-    { id: "m-siddharth", name: "Siddharth", upiId: "sid@icici", phone: "+91 98444 55667" },
-    { id: "m-neha", name: "Neha", upiId: "neha@okaxis", phone: "+91 99555 66778" },
-    { id: "m-kunal", name: "Kunal", upiId: "kunal@paytm", phone: "+91 97666 77889" }
+    { id: "m-henil", name: "You", isCurrentUser: true },
+    { id: "m-siddharth", name: "Siddharth" },
+    { id: "m-neha", name: "Neha" },
+    { id: "m-kunal", name: "Kunal" }
   ],
   expenses: [
     {
@@ -554,7 +554,7 @@ export const GROUP_TEMPLATES = [
     defaultBudget: 45000,
     sampleName: "Manali Snow Adventure",
     sampleDesc: "Weekend Mountain Getaway",
-    suggestedMembers: ["Henil (You)", "Amit", "Rahul", "Jay", "Dev"]
+    suggestedMembers: ["You", "Amit", "Rahul", "Jay", "Dev"]
   },
   {
     id: "tpl-flat",
@@ -564,7 +564,7 @@ export const GROUP_TEMPLATES = [
     defaultBudget: 35000,
     sampleName: "Flat 402 Roomies",
     sampleDesc: "Shared monthly apartment bills",
-    suggestedMembers: ["Henil (You)", "Pritesh", "Aman", "Rohan"]
+    suggestedMembers: ["You", "Pritesh", "Aman", "Rohan"]
   },
   {
     id: "tpl-office",
@@ -574,7 +574,7 @@ export const GROUP_TEMPLATES = [
     defaultBudget: 8000,
     sampleName: "Office Chai Club",
     sampleDesc: "Evening snacks & Friday lunch",
-    suggestedMembers: ["Henil (You)", "Siddharth", "Neha", "Kunal"]
+    suggestedMembers: ["You", "Siddharth", "Neha", "Kunal"]
   },
   {
     id: "tpl-trek",
@@ -584,7 +584,7 @@ export const GROUP_TEMPLATES = [
     defaultBudget: 25000,
     sampleName: "Himalayan Trek 2026",
     sampleDesc: "5-Day mountain expedition",
-    suggestedMembers: ["Henil (You)", "Parth", "Harsh", "Dev"]
+    suggestedMembers: ["You", "Parth", "Harsh", "Dev"]
   },
   {
     id: "tpl-party",
@@ -594,7 +594,7 @@ export const GROUP_TEMPLATES = [
     defaultBudget: 15000,
     sampleName: "Birthday Bash 2026",
     sampleDesc: "Party planning & expenses",
-    suggestedMembers: ["Henil (You)", "Friend 1", "Friend 2", "Friend 3"]
+    suggestedMembers: ["You", "Friend 1", "Friend 2", "Friend 3"]
   },
   {
     id: "tpl-custom",
@@ -604,7 +604,7 @@ export const GROUP_TEMPLATES = [
     defaultBudget: 10000,
     sampleName: "My Custom Group",
     sampleDesc: "Universal group splitting",
-    suggestedMembers: ["Henil (You)", "Friend 1", "Friend 2"]
+    suggestedMembers: ["You", "Friend 1", "Friend 2"]
   }
 ];
 
@@ -616,7 +616,7 @@ export const INITIAL_FAMILY_SPACE: FamilySpace = {
   members: [
     { id: "fm-1", name: "Father (Ramesh)", role: "parent", avatar: "👨", allowSharedViewing: true, monthlyAllowance: 15000 },
     { id: "fm-2", name: "Mother (Gita)", role: "parent", avatar: "👩", allowSharedViewing: true, monthlyAllowance: 15000 },
-    { id: "fm-3", name: "Henil", role: "admin", avatar: "🧑‍💻", allowSharedViewing: true, monthlyAllowance: 20000 },
+    { id: "fm-3", name: "You", role: "admin", avatar: "🧑‍💻", allowSharedViewing: true, monthlyAllowance: 20000 },
     { id: "fm-4", name: "Sister (Pooja)", role: "child", avatar: "👧", allowSharedViewing: true, monthlyAllowance: 5000 }
   ]
 };

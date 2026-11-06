@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     # Auth attempts (register/login/refresh/change-password) per IP per 15 minutes. Local E2E runs
     # may raise it; staging/production refuse anything looser than the default (see validator).
     auth_rate_limit: int = 20
+    # Session refreshes per IP per 15 minutes (separate bucket; see deps.refresh_limiter).
+    refresh_rate_limit: int = 120
     database_url: str = "postgresql+asyncpg://bagla:bagla@localhost:5432/bagla_finance"
     jwt_secret: str
     jwt_algorithm: str = "HS256"
@@ -55,6 +57,8 @@ class Settings(BaseSettings):
     def safe_rate_limit(self):
         if self.auth_rate_limit < 1 or (self.is_production and self.auth_rate_limit > 20):
             raise ValueError("AUTH_RATE_LIMIT must be 1-20 in staging/production")
+        if self.refresh_rate_limit < 1 or (self.is_production and self.refresh_rate_limit > 300):
+            raise ValueError("REFRESH_RATE_LIMIT must be 1-300 in staging/production")
         return self
 
     @model_validator(mode="after")
