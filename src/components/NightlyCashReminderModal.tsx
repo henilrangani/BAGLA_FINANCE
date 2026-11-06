@@ -17,6 +17,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { parseRupeeInput } from "../utils/money";
+import { CloseButton, Modal } from "./ui/Modal";
 
 export const NightlyCashReminderModal: React.FC = () => {
   const {
@@ -88,7 +89,7 @@ export const NightlyCashReminderModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/75 backdrop-blur-sm animate-fadeIn">
+    <Modal onClose={() => { setCustomAmount(""); setCustomDesc(""); setIsNightlyCashModalOpen(false); }} dirty={!successMessage && !!(String(customAmount).trim() || customDesc.trim())} labelledBy="nightly-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/75 backdrop-blur-sm animate-fadeIn">{close => (<>
       <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-amber-500/5">
@@ -98,7 +99,7 @@ export const NightlyCashReminderModal: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-base text-gray-950 dark:text-white">
+                <h3 id="nightly-title" className="font-black text-base text-gray-950 dark:text-white">
                   🌙 10:00 PM Nightly Cash Check
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
@@ -110,8 +111,8 @@ export const NightlyCashReminderModal: React.FC = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setIsNightlyCashModalOpen(false)}
+          <button aria-label="Close"
+            onClick={close}
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -316,13 +317,13 @@ export const NightlyCashReminderModal: React.FC = () => {
           <span className="text-[11px] text-gray-400 font-medium">No cash spent today? Simply close.</span>
           <button
             type="button"
-            onClick={() => setIsNightlyCashModalOpen(false)}
+            onClick={close}
             className="px-5 py-2 bg-slate-900 dark:bg-slate-700 hover:bg-black text-white font-bold text-xs rounded-xl cursor-pointer"
           >
             All Done for Today
           </button>
         </div>
       </div>
-    </div>
+    </>)}</Modal>
   );
 };

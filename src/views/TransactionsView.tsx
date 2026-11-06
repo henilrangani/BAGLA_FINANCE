@@ -26,6 +26,7 @@ import { Transaction, PaymentMethod, TransactionSource, TransactionType } from "
 import { localDateString } from "../utils/dates";
 import { parseStatementCsv } from "../utils/csv";
 import { TransactionEditForm } from "../components/TransactionEditForm";
+import { CloseButton, Modal } from "../components/ui/Modal";
 
 export const TransactionsView: React.FC = () => {
   const {
@@ -373,12 +374,12 @@ export const TransactionsView: React.FC = () => {
 
       {/* Transaction Details Modal */}
       {selectedTransaction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
+        <Modal onClose={() => { setIsEditing(false); setSelectedTransaction(null); }} dirty={isEditing} labelledBy="tx-detail-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
           <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-[#F2F4F7]/60 dark:bg-slate-800/40">
-              <h3 className="font-bold text-sm text-gray-900 dark:text-white">Transaction Details</h3>
-              <button
-                onClick={() => setSelectedTransaction(null)}
+              <h3 id="tx-detail-title" className="font-bold text-sm text-gray-900 dark:text-white">Transaction Details</h3>
+              <button aria-label="Close"
+                onClick={close}
                 className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -482,7 +483,7 @@ export const TransactionsView: React.FC = () => {
                     </button>
                   )}
                   <button
-                    onClick={() => setSelectedTransaction(null)}
+                    onClick={close}
                     className="flex-1 py-3 bg-gray-900 hover:bg-black text-white dark:bg-white dark:text-gray-900 font-bold rounded-2xl transition-colors cursor-pointer"
                   >
                     Close
@@ -491,20 +492,20 @@ export const TransactionsView: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
+        </>)}</Modal>
       )}
 
       {/* CSV Importer Modal */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
+        <Modal onClose={() => { setImportCsvText(""); setImportErrors([]); setIsImportModalOpen(false); }} dirty={!!importCsvText.trim() && importSuccessCount === null} labelledBy="csv-import-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
           <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-[#F2F4F7]/60 dark:bg-slate-800/40">
               <div className="flex items-center gap-2">
                 <Upload className="w-4 h-4 text-indigo-600" />
-                <h3 className="font-bold text-sm text-gray-900 dark:text-white">Import Bank Statement CSV</h3>
+                <h3 id="csv-import-title" className="font-bold text-sm text-gray-900 dark:text-white">Import Bank Statement CSV</h3>
               </div>
               <button
-                onClick={() => setIsImportModalOpen(false)}
+                onClick={close}
                 className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -553,7 +554,7 @@ export const TransactionsView: React.FC = () => {
 
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={() => setIsImportModalOpen(false)}
+                  onClick={close}
                   className="px-4 py-3 border border-gray-200 dark:border-slate-700 rounded-2xl font-bold text-gray-700 dark:text-slate-300 cursor-pointer"
                 >
                   Cancel
@@ -568,7 +569,7 @@ export const TransactionsView: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </>)}</Modal>
       )}
     </div>
   );

@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   ChevronRight
 } from "lucide-react";
+import { CloseButton, Modal } from "./ui/Modal";
 
 interface MoreDrawerModalProps {
   isOpen: boolean;
@@ -40,12 +41,12 @@ export const MoreDrawerModal: React.FC<MoreDrawerModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <Modal onClose={onClose} labelledBy="more-title" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">{close => (<>
       <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 border-t sm:border border-gray-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-3">
-          <h3 className="text-base font-black text-gray-900 dark:text-white">More Modules</h3>
-          <button
-            onClick={onClose}
+          <h3 id="more-title" className="text-base font-black text-gray-900 dark:text-white">More Modules</h3>
+          <button aria-label="Close"
+            onClick={close}
             className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -84,6 +85,6 @@ export const MoreDrawerModal: React.FC<MoreDrawerModalProps> = ({
           })}
         </div>
       </div>
-    </div>
+    </>)}</Modal>
   );
 };

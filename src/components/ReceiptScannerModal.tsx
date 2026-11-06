@@ -16,6 +16,7 @@ import {
 import { ReceiptData, ReceiptItem } from "../types";
 import { localDateString } from "../utils/dates";
 import { addRupees, safeRupees, splitRupeesEqually, sumRupees } from "../utils/money";
+import { CloseButton, Modal } from "./ui/Modal";
 
 export const ReceiptScannerModal: React.FC = () => {
   const {
@@ -218,7 +219,7 @@ export const ReceiptScannerModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
+    <Modal onClose={() => { setPreviewImage(null); setExtractedReceipt(null); setIsReceiptModalOpen(false); }} dirty={!saveSuccess && !!(previewImage || extractedReceipt)} labelledBy="receipt-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
       <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-[#F2F4F7]/60 dark:bg-slate-800/40">
@@ -227,12 +228,12 @@ export const ReceiptScannerModal: React.FC = () => {
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-gray-900 dark:text-white">AI Receipt & Bill Scanner</h3>
+              <h3 id="receipt-title" className="font-bold text-base text-gray-900 dark:text-white">AI Receipt & Bill Scanner</h3>
               <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">Extracts merchant, items, GST, and totals</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsReceiptModalOpen(false)}
+          <button aria-label="Close"
+            onClick={close}
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -483,6 +484,6 @@ export const ReceiptScannerModal: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </>)}</Modal>
   );
 };

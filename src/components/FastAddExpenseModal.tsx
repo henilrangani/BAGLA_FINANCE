@@ -18,6 +18,7 @@ import {
 import { PaymentMethod, TransactionType } from "../types";
 import { localDateString } from "../utils/dates";
 import { safeRupees, parseRupeeInput } from "../utils/money";
+import { CloseButton, Modal } from "./ui/Modal";
 
 export const FastAddExpenseModal: React.FC = () => {
   const {
@@ -54,6 +55,13 @@ export const FastAddExpenseModal: React.FC = () => {
   const [taxCategory, setTaxCategory] = useState("");
 
   if (!isAddExpenseOpen) return null;
+
+  // Closing never saves. Discarding clears what was typed so the next open starts clean.
+  const discardAndClose = () => {
+    setAmount(""); setMerchant(""); setDescription(""); setNotes(""); setTaxCategory("");
+    setNaturalText(""); setParsedPreview(null); setDuplicateWarning(null);
+    setIsAddExpenseOpen(false);
+  };
 
   // Handle Natural Language Input & Real-time AI Extract
   const handleSmartParse = async (e: React.FormEvent) => {
@@ -161,7 +169,7 @@ export const FastAddExpenseModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
+    <Modal onClose={discardAndClose} dirty={!saveToast && !!(amount || merchant || description || notes || naturalText.trim() || parsedPreview)} labelledBy="add-tx-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
       <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-[#F2F4F7]/60 dark:bg-slate-800/40">
@@ -170,7 +178,7 @@ export const FastAddExpenseModal: React.FC = () => {
               ₹
             </div>
             <div>
-              <h3 className="font-bold text-base text-gray-900 dark:text-white">Record Transaction</h3>
+              <h3 id="add-tx-title" className="font-bold text-base text-gray-900 dark:text-white">Record Transaction</h3>
               <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">Fast & seamless in less than 10 seconds</p>
             </div>
           </div>
@@ -203,12 +211,7 @@ export const FastAddExpenseModal: React.FC = () => {
               </button>
             </div>
 
-            <button
-              onClick={() => setIsAddExpenseOpen(false)}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <CloseButton onClick={close} />
           </div>
         </div>
 
@@ -575,18 +578,24 @@ export const FastAddExpenseModal: React.FC = () => {
                 </div>
               ) : null}
 
-              {/* Save Button */}
-              <button
-                type="submit"
-                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-2xl shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>Save {type === "expense" ? "Expense" : "Income"}</span>
-              </button>
+              {/* Save / Cancel */}
+              <div className="flex gap-2">
+                <button type="button" onClick={close}
+                  className="px-5 py-3.5 rounded-2xl border border-gray-300 dark:border-slate-600 text-sm font-bold text-gray-700 dark:text-slate-200 cursor-pointer">
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-2xl shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Save {type === "expense" ? "Expense" : "Income"}</span>
+                </button>
+              </div>
             </form>
           )}
         </div>
       </div>
-    </div>
+    </>)}</Modal>
   );
 };

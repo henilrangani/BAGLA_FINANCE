@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { localDateString } from "../utils/dates";
 import { formatINR, safeRupees } from "../utils/money";
+import { CloseButton, Modal } from "./ui/Modal";
 
 interface Message {
   id: string;
@@ -165,7 +166,7 @@ Ask me anything about where your money went, who owes you what, or simulate mont
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end p-2 sm:p-4 bg-gray-950/50 backdrop-blur-xs animate-fadeIn">
+    <Modal onClose={() => setIsAiChatOpen(false)} dirty={!!input.trim()} labelledBy="ai-title" className="fixed inset-0 z-50 flex items-center justify-end p-2 sm:p-4 bg-gray-950/50 backdrop-blur-xs animate-fadeIn">{close => (<>
       <div className="relative w-full max-w-lg h-[92vh] max-h-[750px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-800 bg-[#F2F4F7]/70 dark:bg-slate-800/50">
@@ -175,7 +176,7 @@ Ask me anything about where your money went, who owes you what, or simulate mont
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm text-gray-900 dark:text-white">Bagla AI Assistant</h3>
+                <h3 id="ai-title" className="font-bold text-sm text-gray-900 dark:text-white">Bagla AI Assistant</h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
                   Live
                 </span>
@@ -183,8 +184,8 @@ Ask me anything about where your money went, who owes you what, or simulate mont
               <p className="text-[11px] text-gray-500 dark:text-slate-400 font-medium">Grounded in your financial records</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsAiChatOpen(false)}
+          <button aria-label="Close"
+            onClick={close}
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -290,6 +291,6 @@ Ask me anything about where your money went, who owes you what, or simulate mont
           </button>
         </form>
       </div>
-    </div>
+    </>)}</Modal>
   );
 };

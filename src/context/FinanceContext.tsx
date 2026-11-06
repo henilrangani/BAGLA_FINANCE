@@ -46,6 +46,7 @@ import { api, ApiError, readSession, setOfflineGuard } from "../api/client";
 import { enqueue, ensureAccounts, pendingCount, pullAll, runOutbox, unsyncedIds, type OutboxOp } from "../api/sync";
 import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGroup, editRemoteExpense, linkRemoteLedger, pullGroups, recordRemoteSettlement, undoRemoteSettlement, voidRemoteExpense } from "../api/groups";
 import type { AccountRefs } from "../api/mappers";
+import { openModalCount } from "../components/ui/Modal";
 
 interface FinanceContextType {
   // State
@@ -342,7 +343,30 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
-  const [currentTab, setCurrentTab] = useState<string>("dashboard");
+  const [currentTab, setTabState] = useState<string>("dashboard");
+  const currentTabRef = useRef(currentTab);
+  currentTabRef.current = currentTab;
+  // Screens get browser history entries, so Back returns to the previous screen. Open dialogs handle Back
+  // themselves (see components/ui/Modal), so this listener ignores Back while one is open.
+  const setCurrentTab = useCallback((tab: string) => {
+    if (tab !== currentTabRef.current) {
+      try {
+        if (history.state?.baglaModal) history.replaceState({ tab }, "");
+        else history.pushState({ tab }, "");
+      } catch { /* history unavailable (sandboxed frame) */ }
+    }
+    setTabState(tab);
+  }, []);
+  useEffect(() => {
+    try { if (!history.state?.tab) history.replaceState({ ...(history.state || {}), tab: currentTabRef.current }, ""); } catch { /* ignore */ }
+    const onPop = (e: PopStateEvent) => {
+      if (openModalCount() > 0) return;
+      const tab = e.state?.tab;
+      if (typeof tab === "string") setTabState(tab);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);

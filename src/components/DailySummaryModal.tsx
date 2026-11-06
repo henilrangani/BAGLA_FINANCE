@@ -15,6 +15,7 @@ import {
 import { localDateString } from "../utils/dates";
 import { countsTowardTotals, netSpend, spendByCategory } from "../utils/ledger";
 import { formatINR, normalizeRupees, safeRupees, subtractRupees } from "../utils/money";
+import { CloseButton, Modal } from "./ui/Modal";
 
 export const DailySummaryModal: React.FC = () => {
   const {
@@ -112,7 +113,7 @@ export const DailySummaryModal: React.FC = () => {
   const totalSpent = summaryData?.totalSpent ?? netSpend(todayTransactions);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
+    <Modal onClose={() => setIsDailySummaryOpen(false)} labelledBy="daily-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
       <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-[#F2F4F7]/60 dark:bg-slate-800/40">
@@ -121,14 +122,14 @@ export const DailySummaryModal: React.FC = () => {
               <Bell className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-gray-900 dark:text-white">Your Bagla Finance Daily</h3>
+              <h3 id="daily-title" className="font-bold text-base text-gray-900 dark:text-white">Your Bagla Finance Daily</h3>
               <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
                 {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setIsDailySummaryOpen(false)}
+          <button aria-label="Close"
+            onClick={close}
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -260,6 +261,6 @@ export const DailySummaryModal: React.FC = () => {
           </button>
         </div>
       </div>
-    </div>
+    </>)}</Modal>
   );
 };

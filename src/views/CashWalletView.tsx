@@ -14,6 +14,7 @@ import {
 import { localDateString } from "../utils/dates";
 import { countsTowardTotals } from "../utils/ledger";
 import { parseRupeeInput } from "../utils/money";
+import { CloseButton, Modal } from "../components/ui/Modal";
 
 export const CashWalletView: React.FC = () => {
   const { cashWallet, updateCashBalance, transactions, addTransaction, settings } = useFinance();
@@ -177,9 +178,9 @@ export const CashWalletView: React.FC = () => {
 
       {/* Cash Reconcile Modal */}
       {isAdjustOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
+        <Modal onClose={() => { setAdjustmentReason(""); setActualBalanceInput(cashWallet.balance.toString()); setIsAdjustOpen(false); }} dirty={actualBalanceInput !== cashWallet.balance.toString() || !!adjustmentReason.trim()} labelledBy="cash-adjust-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
           <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 p-6 space-y-4 text-xs shadow-2xl">
-            <h3 className="font-bold text-base text-gray-900 dark:text-white">Reconcile Physical Cash</h3>
+            <h3 id="cash-adjust-title" className="font-bold text-base text-gray-900 dark:text-white">Reconcile Physical Cash</h3>
             <p className="text-gray-500 font-medium">
               Count the physical currency notes and coins in your wallet and enter the actual amount.
             </p>
@@ -210,7 +211,7 @@ export const CashWalletView: React.FC = () => {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsAdjustOpen(false)}
+                  onClick={close}
                   className="px-4 py-3 border border-gray-200 dark:border-slate-700 font-bold text-gray-700 dark:text-slate-300 rounded-2xl cursor-pointer"
                 >
                   Cancel
@@ -224,7 +225,7 @@ export const CashWalletView: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </>)}</Modal>
       )}
     </div>
   );

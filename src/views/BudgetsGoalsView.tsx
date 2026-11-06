@@ -19,6 +19,7 @@ import confetti from "canvas-confetti";
 import { localDateString, localMonthPrefix } from "../utils/dates";
 import { countsTowardTotals, netSpend } from "../utils/ledger";
 import { normalizeRupees, parseRupeeInput } from "../utils/money";
+import { CloseButton, Modal } from "../components/ui/Modal";
 
 export const BudgetsGoalsView: React.FC<{ initialSubTab?: "budgets" | "simulator" | "goals" }> = ({ initialSubTab = "budgets" }) => {
   const {
@@ -379,9 +380,9 @@ export const BudgetsGoalsView: React.FC<{ initialSubTab?: "budgets" | "simulator
 
       {/* New Budget Modal */}
       {isNewBudgetOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
+        <Modal onClose={() => { setBudgetName(""); setBudgetAmount(""); setIsNewBudgetOpen(false); }} dirty={!!(budgetName.trim() || budgetAmount.trim())} labelledBy="new-budget-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
           <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 p-6 space-y-4 text-xs">
-            <h3 className="font-bold text-base text-gray-900 dark:text-white">Create New Budget</h3>
+            <h3 id="new-budget-title" className="font-bold text-base text-gray-900 dark:text-white">Create New Budget</h3>
             <form onSubmit={handleAddBudgetSubmit} className="space-y-3.5">
               <div>
                 <label className="text-gray-500 font-bold block mb-1">Budget Name *</label>
@@ -426,7 +427,7 @@ export const BudgetsGoalsView: React.FC<{ initialSubTab?: "budgets" | "simulator
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsNewBudgetOpen(false)}
+                  onClick={close}
                   className="px-4 py-3 border border-gray-200 dark:border-slate-700 font-bold text-gray-700 dark:text-slate-300 rounded-2xl cursor-pointer"
                 >
                   Cancel
@@ -440,14 +441,14 @@ export const BudgetsGoalsView: React.FC<{ initialSubTab?: "budgets" | "simulator
               </div>
             </form>
           </div>
-        </div>
+        </>)}</Modal>
       )}
 
       {/* New Goal Modal */}
       {isNewGoalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">
+        <Modal onClose={() => { setGoalName(""); setGoalTargetAmount(""); setGoalCurrentAmount(""); setIsNewGoalOpen(false); }} dirty={!!(goalName.trim() || goalTargetAmount.trim() || goalCurrentAmount.trim())} labelledBy="new-goal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
           <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 p-6 space-y-4 text-xs">
-            <h3 className="font-bold text-base text-gray-900 dark:text-white">Create Savings Target</h3>
+            <h3 id="new-goal-title" className="font-bold text-base text-gray-900 dark:text-white">Create Savings Target</h3>
             <form onSubmit={handleAddGoalSubmit} className="space-y-3.5">
               <div className="grid grid-cols-4 gap-3">
                 <div>
@@ -497,7 +498,7 @@ export const BudgetsGoalsView: React.FC<{ initialSubTab?: "budgets" | "simulator
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsNewGoalOpen(false)}
+                  onClick={close}
                   className="px-4 py-3 border border-gray-200 dark:border-slate-700 font-bold text-gray-700 dark:text-slate-300 rounded-2xl cursor-pointer"
                 >
                   Cancel
@@ -511,7 +512,7 @@ export const BudgetsGoalsView: React.FC<{ initialSubTab?: "budgets" | "simulator
               </div>
             </form>
           </div>
-        </div>
+        </>)}</Modal>
       )}
     </div>
   );

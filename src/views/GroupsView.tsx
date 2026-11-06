@@ -32,6 +32,7 @@ import { localDateString } from "../utils/dates";
 import { formatINR, normalizeRupees, parseRupeeInput, splitRupeesEqually, subtractRupees, sumRupees } from "../utils/money";
 import { describeVoid, previewRemoteVoid, type VoidPreview } from "../api/groups";
 import { GroupMemberToolbar, JoinGroupDialog, MemberCardActions } from "../components/GroupMembersPanel";
+import { CloseButton, Modal } from "../components/ui/Modal";
 
 export const GroupsView: React.FC = () => {
   const {
@@ -1080,15 +1081,15 @@ export const GroupsView: React.FC = () => {
 
       {/* Settle Modal with Direct UPI QR Code */}
       {settleModalData && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <Modal onClose={() => setSettleModalData(null)} labelledBy="settle-title" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">{close => (<>
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-gray-200 dark:border-slate-800 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
+              <h3 id="settle-title" className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
                 <QrCode className="w-5 h-5 text-[#047857]" />
                 <span>Settle Payment</span>
               </h3>
               <button
-                onClick={() => setSettleModalData(null)}
+                onClick={close} aria-label="Close"
                 className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1130,7 +1131,7 @@ export const GroupsView: React.FC = () => {
               <span>Mark as Settled & Confirmed</span>
             </button>
           </div>
-        </div>
+        </>)}</Modal>
       )}
 
       {/* Add Trip Expense Modal */}

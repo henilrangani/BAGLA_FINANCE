@@ -9,6 +9,7 @@ import { localDateString } from "../utils/dates";
 type Freq = "weekly" | "monthly" | "quarterly" | "yearly";
 import { monthlyPaise } from "../utils/recurring";
 import { RemindersPanel } from "../components/RemindersPanel";
+import { CloseButton, Modal } from "../components/ui/Modal";
 
 const card = "p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs space-y-4";
 const input = "w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 font-medium outline-none focus:ring-2 focus:ring-indigo-500";
@@ -39,9 +40,9 @@ function AddForm({ accounts, onSave, onClose }: { accounts?: { id: string; name:
     }
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm" role="dialog" aria-label="Add a recurring bill">
+    <Modal onClose={onClose} dirty={!busy && !!(name.trim() || amount.trim())} labelledBy="add-bill-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm">{close => (<>
       <form onSubmit={submit} className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 p-6 space-y-3.5 text-xs">
-        <h3 className="font-bold text-base text-gray-900 dark:text-white">Add a bill or subscription</h3>
+        <h3 id="add-bill-title" className="font-bold text-base text-gray-900 dark:text-white">Add a bill or subscription</h3>
         <label className="block text-gray-500 font-bold">Name *
           <input className={`${input} mt-1`} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Internet, Rent, Netflix" required maxLength={120} />
         </label>
@@ -68,11 +69,11 @@ function AddForm({ accounts, onSave, onClose }: { accounts?: { id: string; name:
         )}
         {error && <p role="alert" className="font-semibold text-rose-600">{error}</p>}
         <div className="flex gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-3 border border-gray-200 dark:border-slate-700 font-bold rounded-2xl cursor-pointer">Cancel</button>
+          <button type="button" onClick={close} className="px-4 py-3 border border-gray-200 dark:border-slate-700 font-bold rounded-2xl cursor-pointer">Cancel</button>
           <button type="submit" disabled={busy} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-2xl cursor-pointer">Save</button>
         </div>
       </form>
-    </div>
+    </>)}</Modal>
   );
 }
 

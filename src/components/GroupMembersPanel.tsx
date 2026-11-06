@@ -13,6 +13,7 @@ import {
   inviteShareText,
   removeRemoteMember,
 } from "../api/groups";
+import { CloseButton, Modal } from "./ui/Modal";
 
 interface PanelProps {
   group: Group;
@@ -183,11 +184,11 @@ export const JoinGroupDialog: React.FC<{ onClose: () => void; refresh: (selectId
     }
   };
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Join a group">
+    <Modal onClose={onClose} dirty={!!code.trim() && !busy} labelledBy="join-group-title" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">{close => (<>
       <form onSubmit={submit} className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-gray-200 dark:border-slate-800 shadow-2xl space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-black text-gray-900 dark:text-white">Join a group with a code</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-gray-400 cursor-pointer"><X className="w-4 h-4" /></button>
+          <h3 id="join-group-title" className="text-base font-black text-gray-900 dark:text-white">Join a group with a code</h3>
+          <button type="button" onClick={close} aria-label="Close" className="p-1 text-gray-400 cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
         <p className="text-xs text-gray-500 dark:text-slate-400">Ask the group admin to tap "Invite to join" next to your name and send you the code. Each code works once.</p>
         <input value={code} onChange={e => setCode(e.target.value)} placeholder="Paste the code" autoFocus aria-label="Invite code"
@@ -198,6 +199,6 @@ export const JoinGroupDialog: React.FC<{ onClose: () => void; refresh: (selectId
           {busy ? "Joining…" : "Join group"}
         </button>
       </form>
-    </div>
+    </>)}</Modal>
   );
 };

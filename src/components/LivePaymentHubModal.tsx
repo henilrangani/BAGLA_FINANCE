@@ -18,6 +18,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { parseRupeeInput } from "../utils/money";
+import { CloseButton, Modal } from "./ui/Modal";
 
 export const LivePaymentHubModal: React.FC = () => {
   const {
@@ -86,7 +87,7 @@ export const LivePaymentHubModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/70 backdrop-blur-sm animate-fadeIn">
+    <Modal onClose={() => setIsLiveSyncModalOpen(false)} labelledBy="paysync-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/70 backdrop-blur-sm animate-fadeIn">{close => (<>
       <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-emerald-500/5">
@@ -96,7 +97,7 @@ export const LivePaymentHubModal: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-base text-gray-950 dark:text-white">
+                <h3 id="paysync-title" className="font-black text-base text-gray-950 dark:text-white">
                   Payment sync demo (simulated)
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
@@ -108,8 +109,8 @@ export const LivePaymentHubModal: React.FC = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setIsLiveSyncModalOpen(false)}
+          <button aria-label="Close"
+            onClick={close}
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -287,13 +288,13 @@ export const LivePaymentHubModal: React.FC = () => {
         <div className="px-6 py-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/40 flex justify-end">
           <button
             type="button"
-            onClick={() => setIsLiveSyncModalOpen(false)}
+            onClick={close}
             className="px-5 py-2.5 bg-slate-900 dark:bg-slate-700 hover:bg-black text-white font-bold text-xs rounded-2xl cursor-pointer"
           >
             Done
           </button>
         </div>
       </div>
-    </div>
+    </>)}</Modal>
   );
 };

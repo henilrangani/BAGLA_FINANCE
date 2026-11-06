@@ -15,7 +15,7 @@ test("recurring bills: add, monthly total, mark paid once, skip, edit, pause/res
   await expect(page.getByText(/No recurring bills yet/)).toBeVisible();
   // Weekly ₹120 bill that started 15 days ago → 3 occurrences due (day 0, 7, 14).
   await page.getByRole("button", { name: "Add bill" }).click();
-  const dialog = page.getByRole("dialog", { name: "Add a recurring bill" });
+  const dialog = page.getByRole("dialog", { name: "Add a bill or subscription" });
   await dialog.getByLabel(/Name/).fill("Milk");
   await dialog.getByLabel(/Amount/).fill("120");
   await dialog.getByLabel("Repeats").selectOption("weekly");
