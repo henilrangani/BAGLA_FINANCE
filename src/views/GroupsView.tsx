@@ -50,8 +50,11 @@ export const GroupsView: React.FC = () => {
     cloud,
     transactions,
     addGroupMember,
-    refreshGroups
+    refreshGroups,
+    linkGroupLedger
   } = useFinance();
+  const [ledgerBusy, setLedgerBusy] = useState(false);
+  const [ledgerError, setLedgerError] = useState("");
   const accountMode = cloud.enabled && cloud.state !== "signed_out";
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const joinDialog = isJoinOpen && <JoinGroupDialog onClose={() => setIsJoinOpen(false)} refresh={refreshGroups} />;
@@ -592,6 +595,37 @@ export const GroupsView: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* My share in my own transactions (account mode) */}
+        {accountMode && activeGroup.myLedger && (
+          <div className="px-6 py-3 border-b border-gray-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs"
+            data-testid="my-group-ledger">
+            {activeGroup.myLedger.linked ? (
+              <span className="text-gray-600 dark:text-slate-300">
+                Your transactions record <strong>only your share</strong> of this group's spending.
+                {" "}{activeGroup.myLedger.inSync === false ? "Updating…" : (activeGroup.myLedger.balance ?? 0) >= 0
+                  ? `Others owe you ${formatINR(activeGroup.myLedger.balance ?? 0)}.`
+                  : `You owe ${formatINR(-(activeGroup.myLedger.balance ?? 0))}.`}
+              </span>
+            ) : (
+              <>
+                <span className="text-gray-600 dark:text-slate-300">
+                  Add your share of this group's spending to your own transactions (money you front or get back is
+                  tracked separately, not counted as spending).
+                </span>
+                <button disabled={ledgerBusy} onClick={async () => {
+                  setLedgerBusy(true); setLedgerError("");
+                  try { await linkGroupLedger(activeGroup.id); }
+                  catch (e) { setLedgerError((e as Error).message); }
+                  finally { setLedgerBusy(false); }
+                }} className="px-3 py-1.5 rounded-lg bg-[#059669] text-white font-bold disabled:opacity-60 cursor-pointer">
+                  {ledgerBusy ? "Turning on…" : "Track my share"}
+                </button>
+              </>
+            )}
+            {ledgerError && <span role="alert" className="w-full text-rose-600 font-semibold">{ledgerError}</span>}
+          </div>
+        )}
 
         {/* Sub Navigation Tabs */}
         <div className="flex items-center border-b border-gray-100 dark:border-slate-800 px-6 pt-3 gap-6 text-xs font-bold">

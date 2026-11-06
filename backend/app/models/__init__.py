@@ -17,6 +17,7 @@ from .groups import (
     RecurringOccurrence,
     SplitExpense,
     SplitGroup,
+    SplitLedgerLink,
     SplitMember,
     SplitSettlement,
     SplitShare,
@@ -30,6 +31,6 @@ __all__ = [
     "Base", "User", "AuthSession", "FinancialAccount", "Transaction", "AuditEvent", "Budget",
     "SavingsGoal", "GoalContribution", "ImportBatch", "ImportRow", "FamilyGroup", "FamilyMember",
     "FamilyInvite", "SupportTicket", "Feedback", "Plan", "UserSubscription", "BillingEvent",
-    "SplitGroup", "SplitMember", "SplitExpense", "SplitShare", "SplitSettlement", "RecurringBill",
+    "SplitGroup", "SplitLedgerLink", "SplitMember", "SplitExpense", "SplitShare", "SplitSettlement", "RecurringBill",
     "RecurringOccurrence",
 ]

@@ -85,3 +85,15 @@ When you pay for a group expense, the server writes the matching personal expens
 ### D11. Optimistic concurrency for group money
 Every money-changing group write bumps `split_groups.version`, and the write fails with 409 if another write landed first. A void is also a conditional `UPDATE … WHERE status='posted'`. PostgreSQL additionally takes a row lock.
 - **Why:** the "settle at most what is owed" check and single application of a void must hold even without row locks (SQLite in development and tests). A concurrency test proved overpayment was possible before.
+
+## 2026-11-06: Release hardening
+
+### D12. Group spending enters a personal ledger as the member's share only
+Supersedes D10 for new data. A member who opts in ("Track my share", or automatically when they record an expense they paid) gets a `group`-type account "Group: <name>" in their own ledger.
+- **Money fronted** (paying a whole bill) and **paybacks** are transfers between their funding account and that group account. Transfers are never income or expense.
+- **Their share** of every posted expense is an expense from the group account.
+- **Invariants** (tested for equal and exact splits, odd paise, payer and non-payer cases, partial settlements, overpayment refusal, refunds as amount edits, voids, edits, concurrent settlements, plus a seeded randomized sequence): spending = Σ my shares; group-account balance = my net in the group; funding account moved by −paid − sent + received.
+- Entries are derived from the group and kept in step by `sync`, which writes **only the caller's own ledger**. Other members' ledgers update when they act or open the group. Each entry carries an idempotency key; a change voids the old entry (kept) and creates a new one.
+- A group change is refused while the caller's own linked entry for that expense has a refund or reversal.
+- Legacy full-amount entries (batch 2) are voided with an audit event `replaced_by_group_ledger` when the user links the group; they're never hard-deleted.
+- **Why:** recording the full bill as personal spending overstated spending by everyone else's share and ignored paybacks. A refund to a group is represented as an audited reduction of the group expense's amount.

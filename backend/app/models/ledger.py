@@ -30,7 +30,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin, UTCDateTime, UUIDMixin, utcnow
 
-ACCOUNT_TYPES = ("bank", "cash", "savings", "credit_card", "wallet", "loan", "investment", "other")
+# "group": a member's share-based balance for one split group (services/group_ledger.py).
+ACCOUNT_TYPES = ("bank", "cash", "savings", "credit_card", "wallet", "loan", "investment", "other", "group")
 DIRECTIONS = ("debit", "credit")
 KINDS = (
     "income",

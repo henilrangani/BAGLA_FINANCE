@@ -58,14 +58,37 @@ export function fromServerGroup(d: any): Group {
     archived: d.is_archived,
     myRole: d.my_role,
     formerMembers,
+    myLedger: d.my_ledger?.linked
+      ? { linked: true, inSync: !!d.my_ledger.in_sync, balance: fromPaise(d.my_ledger.balance_paise) }
+      : { linked: false },
   } as Group;
 }
 
-export async function pullGroups(): Promise<Group[]> {
+/**
+ * Loads my groups. A group whose share-based entries in my ledger are out of date (someone else
+ * changed it) is synced first; onSynced lets the caller re-pull my transactions afterwards.
+ */
+export async function pullGroups(onSynced?: () => void): Promise<Group[]> {
   const list = await api<any[]>("GET", "/api/v1/groups");
-  const details = await Promise.all(list.filter(g => !g.is_archived).map(g => api<any>("GET", `/api/v1/groups/${g.id}`)));
+  let synced = false;
+  const details = await Promise.all(list.filter(g => !g.is_archived).map(async g => {
+    const d = await api<any>("GET", `/api/v1/groups/${g.id}`);
+    if (d.my_ledger?.linked && !d.my_ledger.in_sync) {
+      try {
+        const r = await api<any>("POST", `/api/v1/groups/${g.id}/ledger/sync`);
+        synced = true;
+        return r.group;
+      } catch { /* keep the unsynced view; the next pull retries */ }
+    }
+    return d;
+  }));
+  if (synced) onSynced?.();
   return details.map(fromServerGroup);
 }
+
+/** Turn on share-based tracking for this group in my own transactions, paid from this account. */
+export const linkRemoteLedger = (groupId: string, fundingAccountId: string) =>
+  api<any>("POST", `/api/v1/groups/${groupId}/ledger`, { funding_account_id: fundingAccountId });
 
 export async function createRemoteGroup(name: string, description: string, emoji: string, budgetRupees: number | undefined,
   members: { name: string; upiId?: string }[]): Promise<string> {
@@ -105,7 +128,7 @@ export interface VoidPreview {
   balance_flips: { member_id: string; before_paise: number; after_paise: number }[];
   recorded_settlements: number;
   suggested_after: { from_member_id: string; to_member_id: string; amount_paise: number }[];
-  personal_entry: "will_void" | "will_flag_for_payer" | null;
+  personal_entry: "will_void" | "will_flag_for_payer" | "share_ledger_updates" | null;
   blocker: string | null;
 }
 
@@ -124,6 +147,9 @@ export function describeVoid(description: string, pv: VoidPreview, nameOf: (id: 
     lines.push("If a recorded payment never actually happened, undo that payment instead.");
   }
   if (pv.personal_entry === "will_void") lines.push("", "The matching entry in your own transactions will be removed too.");
+  if (pv.personal_entry === "share_ledger_updates") {
+    lines.push("", "Your share of it will be removed from your own transactions; recorded paybacks stay as they are.");
+  }
   if (pv.personal_entry === "will_flag_for_payer") lines.push("", "The payer's own transactions aren't changed; their entry is flagged for them to review.");
   return lines.join("\n");
 }

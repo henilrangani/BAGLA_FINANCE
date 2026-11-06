@@ -11,10 +11,12 @@ Permissions (enforced here, tested in tests/test_splits_recurring.py):
   changed hands. If a void would flip someone from "owes" to "is owed" (or back),
   the server refuses until the caller confirms (confirm_balance_change=true);
   GET .../void-preview shows the effect first. See DECISIONS D9.
-- The payer's personal ledger entry (personal_transaction_id) is created here,
-  idempotently (key gexp:<expense id>), and voided/updated with the expense when the
-  payer does it. When someone else voids or edits it, the payer's entry is only
-  flagged needs_review: nobody changes another person's ledger.
+- Personal ledgers (DECISIONS D12, services/group_ledger.py): a member who opts in gets
+  share-based entries in their own ledger: their share as spending, money they fronted or
+  paid back as transfers through a "Group: <name>" account whose balance equals their net.
+  Only the caller's own ledger is ever written. Legacy full-amount entries
+  (personal_transaction_id, batch 2) are still voided/updated with their expense; when
+  someone else changes it, the payer's entry is only flagged needs_review.
 - Writes lock the group row (SELECT ... FOR UPDATE on PostgreSQL) so concurrent
   settlements can't both pass the "at most what is owed" check.
 """
@@ -22,9 +24,8 @@ import hashlib
 import re
 import secrets
 import uuid
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -36,8 +37,8 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models import SplitExpense, SplitGroup, SplitMember, SplitSettlement, SplitShare, Transaction, User
 from app.schemas.common import PositivePaise
-from app.schemas.transaction import TransactionCreate, TransactionUpdate
-from app.services import ledger
+from app.schemas.transaction import TransactionUpdate
+from app.services import group_ledger, ledger
 from app.services.ledger import audit, conflict, local_date_for, not_found
 
 router = APIRouter()
@@ -234,6 +235,8 @@ async def _detail(db: AsyncSession, group: SplitGroup, me: SplitMember) -> dict:
                          "created_at": s.created_at} for s in setts],
         "total_spend_paise": sum(e.amount_paise for e in exps if e.status == "posted"),
         "suggested_settlements": suggest(net),
+        "my_ledger": await group_ledger.status(db, me.user_id, group, net.get(me.id, 0)) if me.user_id else
+        {"linked": False},
     }
 
 
@@ -400,7 +403,7 @@ async def add_expense(group_id: uuid.UUID, payload: ExpenseCreate, user: User = 
         if existing:
             if existing.amount_paise != payload.amount_paise:
                 raise conflict("Idempotency key was already used for a different expense")
-            await _ensure_mirror(db, user, g, existing, payload.personal_account_id)  # finish an interrupted retry
+            await _record_mine(db, user, g, me, payload.personal_account_id)  # finish an interrupted retry
             return await _detail(db, g, me)
     active = {m.id for m in await _members(db, group_id, True)}
     if payload.paid_by_member_id not in active:
@@ -429,29 +432,26 @@ async def add_expense(group_id: uuid.UUID, payload: ExpenseCreate, user: User = 
     except IntegrityError:
         await db.rollback()
         raise conflict("Duplicate expense submission") from None
-    await _ensure_mirror(db, user, g, exp, payload.personal_account_id)
+    await _record_mine(db, user, g, me, payload.personal_account_id)
     return await _detail(db, g, me)
+
+
+async def _record_mine(db: AsyncSession, user: User, g: SplitGroup, me: SplitMember,
+                       account_id: uuid.UUID | None) -> None:
+    """Opt in (if asked) and bring my own ledger in step: my share as spending, the rest as money lent."""
+    if account_id is not None:
+        await group_ledger.link(db, user, g, me, account_id)
+    await _autosync(db, user, g)
+
+
+async def _autosync(db: AsyncSession, user: User, g: SplitGroup) -> dict | None:
+    """After the caller changes the group, update the caller's own share-based ledger (if linked)."""
+    lk = await group_ledger.get_link(db, g.id, user.id)
+    return await group_ledger.sync(db, user, g, lk) if lk else None
 
 
 def _mirror_text(exp: SplitExpense) -> str:
     return f"Group: {exp.description}"[:500]
-
-
-async def _ensure_mirror(db: AsyncSession, user: User, g: SplitGroup, exp: SplitExpense,
-                         account_id: uuid.UUID | None) -> None:
-    """Create the payer's personal ledger entry once (idempotency key derived from the expense id)."""
-    if account_id is None or exp.personal_transaction_id is not None or exp.status != "posted":
-        return
-    zone = user.timezone or "Asia/Kolkata"
-    tx, _ = await ledger.create_transaction(db, user, TransactionCreate(
-        account_id=account_id, amount_paise=exp.amount_paise, kind="expense",
-        description=_mirror_text(exp), category=exp.category,
-        notes=('Paid for group "' + g.name + '"')[:1000],
-        occurred_at=datetime.combine(exp.expense_date, time(12), tzinfo=ZoneInfo(zone)), timezone=zone,
-        idempotency_key=f"gexp:{exp.id}"))
-    exp.personal_transaction_id = tx.id
-    audit(db, user.id, "split_expense", exp.id, "personal_entry_linked", None, {"transaction_id": str(tx.id)})
-    await db.commit()
 
 
 async def _mirror_after_change(db: AsyncSession, user: User, exp: SplitExpense, action: str) -> str | None:
@@ -523,7 +523,7 @@ async def edit_expense(group_id: uuid.UUID, expense_id: uuid.UUID, payload: Expe
         e.amount_paise = ch["amount_paise"]
         await _write_shares(db, e, list(zip(ids, allocate_equal(e.amount_paise, len(ids)), strict=True)))
     if "amount_paise" in ch:
-        blocker = await _mirror_blocker(db, e)
+        blocker = await _mirror_blocker(db, e) or await group_ledger.blocker(db, user.id, g.id, e.id)
         if blocker:
             await db.rollback()
             raise conflict(blocker)
@@ -531,6 +531,7 @@ async def edit_expense(group_id: uuid.UUID, expense_id: uuid.UUID, payload: Expe
     await _bump(db, g)
     await db.commit()
     await _mirror_after_change(db, user, e, "update")
+    await _autosync(db, user, g)
     return await _detail(db, g, me)
 
 
@@ -561,7 +562,7 @@ async def void_preview(group_id: uuid.UUID, expense_id: uuid.UUID, user: User = 
     g, me = await _membership(db, group_id, user)
     e = await _expense(db, group_id, expense_id)
     eff = await _void_effect(db, group_id, e)
-    personal = None
+    personal = "share_ledger_updates" if await group_ledger.get_link(db, g.id, user.id) else None
     if e.personal_transaction_id:
         tx = await db.get(Transaction, e.personal_transaction_id)
         if tx and tx.status != "void":
@@ -573,7 +574,7 @@ async def void_preview(group_id: uuid.UUID, expense_id: uuid.UUID, user: User = 
                      for m in eff["before"]],
         "balance_flips": eff["flipped"], "recorded_settlements": eff["recorded_settlements"],
         "suggested_after": eff["suggested_after"], "personal_entry": personal,
-        "blocker": await _mirror_blocker(db, e),
+        "blocker": await _mirror_blocker(db, e) or await group_ledger.blocker(db, user.id, g.id, e.id),
     }
 
 
@@ -587,7 +588,7 @@ async def void_expense(group_id: uuid.UUID, expense_id: uuid.UUID,
         raise HTTPException(403, "Only the person who added it or an admin can delete this expense")
     if e.status == "void":  # idempotent: a repeated or concurrent void changes nothing
         return await _detail(db, g, me)
-    blocker = await _mirror_blocker(db, e)
+    blocker = await _mirror_blocker(db, e) or await group_ledger.blocker(db, user.id, g.id, e.id)
     if blocker:
         raise conflict(blocker)
     eff = await _void_effect(db, group_id, e)
@@ -612,6 +613,7 @@ async def void_expense(group_id: uuid.UUID, expense_id: uuid.UUID,
            "recorded_settlements_kept": eff["recorded_settlements"]})
     await db.commit()
     await _mirror_after_change(db, user, e, "void")
+    await _autosync(db, user, g)
     return await _detail(db, g, me)
 
 
@@ -650,6 +652,7 @@ async def record_settlement(group_id: uuid.UUID, payload: SettlementCreate, user
     except IntegrityError:
         await db.rollback()
         raise conflict("Duplicate settlement submission") from None
+    await _autosync(db, user, g)
     return await _detail(db, g, me)
 
 
@@ -668,4 +671,33 @@ async def void_settlement(group_id: uuid.UUID, settlement_id: uuid.UUID, user: U
         audit(db, user.id, "split_settlement", s.id, "void", None, None)
         await _bump(db, g)
         await db.commit()
+        await _autosync(db, user, g)
     return await _detail(db, g, me)
+
+
+# --------------------------------------------------------------------------- my ledger
+
+class LedgerLinkIn(BaseModel):
+    funding_account_id: uuid.UUID
+
+
+@router.post("/{group_id}/ledger")
+async def link_my_ledger(group_id: uuid.UUID, payload: LedgerLinkIn, user: User = Depends(get_current_user),
+                         db: AsyncSession = Depends(get_db)):
+    """Track my share of this group's spending in my own transactions (paid from this account)."""
+    g, me = await _membership(db, group_id, user)
+    await group_ledger.link(db, user, g, me, payload.funding_account_id)
+    report = await _autosync(db, user, g)
+    return {"sync": report, "group": await _detail(db, g, me)}
+
+
+@router.post("/{group_id}/ledger/sync")
+async def sync_my_ledger(group_id: uuid.UUID, user: User = Depends(get_current_user),
+                         db: AsyncSession = Depends(get_db)):
+    """Bring my own ledger in step with changes other members made. Idempotent."""
+    g, me = await _membership(db, group_id, user)
+    lk = await group_ledger.get_link(db, g.id, user.id)
+    if lk is None:
+        raise HTTPException(409, "Turn on 'Track my share' for this group first")
+    report = await group_ledger.sync(db, user, g, lk)
+    return {"sync": report, "group": await _detail(db, g, me)}

@@ -23,8 +23,23 @@ def nets(d):
 
 
 async def personal(client, h, status=None):
-    q = f"?status={status}" if status else ""
+    q = f"?status={status}&limit=200" if status else "?limit=200"
     return (await client.get(f"{API}/transactions{q}", headers=auth(h))).json()["items"]
+
+
+async def books(client, h):
+    """My spending (expense entries) and my 'Group:' account balance, both in paise."""
+    posted = await personal(client, h, "posted")
+    spend = sum(t["amount_paise"] for t in posted if t["kind"] == "expense")
+    accs = (await client.get(f"{API}/accounts", headers=auth(h))).json()
+    group = next((a["balance_paise"] for a in accs if a["account_type"] == "group"), None)
+    return spend, group
+
+
+async def sync(client, h, gid):
+    r = await client.post(f"{API}/groups/{gid}/ledger/sync", headers=auth(h))
+    assert r.status_code == 200, r.text
+    return r.json()
 
 
 async def test_void_after_settlement_needs_confirmation_and_keeps_history(client):
@@ -34,21 +49,27 @@ async def test_void_after_settlement_needs_confirmation_and_keeps_history(client
         "description": "Dinner", "amount_paise": 10000, "paid_by_member_id": m["Asha"],
         "personal_account_id": acc, "idempotency_key": "exp-dinner-1"})).json()
     eid = d["expenses"][0]["id"]
-    assert d["expenses"][0]["has_personal_entry"] is True
-    mine = await personal(client, asha)
-    assert [(t["description"], t["amount_paise"]) for t in mine] == [("Group: Dinner", 10000)]
-    # Retrying the same expense never creates a second personal entry.
+    # Share-based: my spending is my share (₹33.34), the other ₹66.66 is money lent (group account).
+    assert d["my_ledger"]["linked"] and d["my_ledger"]["in_sync"]
+    assert await books(client, asha) == (3334, 6666)
+    # Retrying the same expense never creates a second set of entries.
     await client.post(f"{API}/groups/{gid}/expenses", headers=auth(asha), json={
         "description": "Dinner", "amount_paise": 10000, "paid_by_member_id": m["Asha"],
         "personal_account_id": acc, "idempotency_key": "exp-dinner-1"})
-    assert len(await personal(client, asha)) == 1
+    assert len(await personal(client, asha, "posted")) == 3  # transfer out + in, share expense
+    assert await books(client, asha) == (3334, 6666)
 
     # Ravi pays back his share.
     await client.post(f"{API}/groups/{gid}/settlements", headers=auth(ravi), json={
         "from_member_id": m["Ravi"], "to_member_id": m["Asha"], "amount_paise": 3333, "idempotency_key": "settle-r-1"})
 
+    # Ravi recorded it, so Asha's ledger updates when she syncs: ₹33.33 comes back to her cash.
+    assert (await client.get(f"{API}/groups/{gid}", headers=auth(asha))).json()["my_ledger"]["in_sync"] is False
+    await sync(client, asha, gid)
+    assert await books(client, asha) == (3334, 3333)
+
     pv = (await client.get(f"{API}/groups/{gid}/expenses/{eid}/void-preview", headers=auth(asha))).json()
-    assert pv["can_void"] and pv["personal_entry"] == "will_void" and pv["recorded_settlements"] == 1
+    assert pv["can_void"] and pv["personal_entry"] == "share_ledger_updates" and pv["recorded_settlements"] == 1
     flips = {f["member_id"]: (f["before_paise"], f["after_paise"]) for f in pv["balance_flips"]}
     assert flips == {m["Asha"]: (3333, -3333), m["Ravi"]: (0, 3333)}
     assert sum(b["after_paise"] for b in pv["balances"]) == 0
@@ -58,7 +79,7 @@ async def test_void_after_settlement_needs_confirmation_and_keeps_history(client
     r = await client.delete(f"{API}/groups/{gid}/expenses/{eid}", headers=auth(asha))
     assert r.status_code == 409 and r.json()["detail"]["code"] == "balance_change_needs_confirmation"
     d = (await client.get(f"{API}/groups/{gid}", headers=auth(asha))).json()
-    assert d["expenses"][0]["status"] == "posted" and (await personal(client, asha))[0]["status"] == "posted"
+    assert d["expenses"][0]["status"] == "posted" and await books(client, asha) == (3334, 3333)
 
     # Confirmed: expense void, settlement kept, balances exact and zero-sum, personal entry voided.
     d = (await client.delete(f"{API}/groups/{gid}/expenses/{eid}?confirm_balance_change=true",
@@ -68,13 +89,15 @@ async def test_void_after_settlement_needs_confirmation_and_keeps_history(client
     assert nets(d) == {"Asha": -3333, "Ravi": 3333, "Meera": 0} and sum(nets(d).values()) == 0
     assert d["suggested_settlements"] == [{"from_member_id": m["Asha"], "to_member_id": m["Ravi"],
                                            "amount_paise": 3333}]
-    assert await personal(client, asha, "posted") == []
-    assert len(await personal(client, asha, "void")) == 1
+    # My spending is back to 0; the group account now equals what I owe Ravi (-₹33.33).
+    assert await books(client, asha) == (0, -3333) and d["my_ledger"]["in_sync"]
+    voided = len(await personal(client, asha, "void"))
+    assert voided == 3  # paid transfer (2 legs) + share; the payback entry is kept
 
     # Repeating the void is a no-op (no second reversal, nothing new in the ledger).
     again = await client.delete(f"{API}/groups/{gid}/expenses/{eid}?confirm_balance_change=true", headers=auth(asha))
     assert again.status_code == 200 and nets(again.json()) == nets(d)
-    assert len(await personal(client, asha, "void")) == 1 and await personal(client, asha, "posted") == []
+    assert len(await personal(client, asha, "void")) == voided and await books(client, asha) == (0, -3333)
 
 
 async def test_void_without_settlements_needs_no_confirmation(client):
@@ -103,7 +126,8 @@ async def test_concurrent_voids_apply_once(client):
     assert codes in ([200, 200], [200, 409]), codes
     d = (await client.get(f"{API}/groups/{gid}", headers=auth(asha))).json()
     assert d["expenses"][0]["status"] == "void" and all(v == 0 for v in nets(d).values())
-    assert len(await personal(client, asha, "void")) == 1 and await personal(client, asha, "posted") == []
+    assert len(await personal(client, asha, "void")) == 3 and await personal(client, asha, "posted") == []
+    assert await books(client, asha) == (0, 0)
 
 
 async def test_concurrent_settlements_cannot_overpay(client):
@@ -139,21 +163,24 @@ async def test_permissions_and_other_peoples_ledgers(client):
         "description": "Fuel", "amount_paise": 900, "paid_by_member_id": m["Asha"]})).json()
     fuel = next(e["id"] for e in a["expenses"] if e["description"] == "Fuel")
     assert (await client.delete(f"{API}/groups/{gid}/expenses/{fuel}", headers=auth(ravi))).status_code == 403
-    # Admin Asha voids Ravi's expense: Ravi's own ledger entry is flagged, not changed.
-    pv = (await client.get(f"{API}/groups/{gid}/expenses/{eid}/void-preview", headers=auth(asha))).json()
-    assert pv["personal_entry"] == "will_flag_for_payer"
+    assert await books(client, ravi) == (200, 400)  # his share ₹2; ₹4 lent
+    # Admin Asha voids Ravi's expense: Asha's action never writes Ravi's ledger...
     r = await client.delete(f"{API}/groups/{gid}/expenses/{eid}?confirm_balance_change=true", headers=auth(asha))
     assert r.status_code == 200, r.text
-    tx = (await personal(client, ravi))[0]
-    assert tx["status"] == "posted" and tx["needs_review"] is True and tx["amount_paise"] == 600
+    assert await books(client, ravi) == (200, 400)
+    assert (await client.get(f"{API}/groups/{gid}", headers=auth(ravi))).json()["my_ledger"]["in_sync"] is False
     assert await personal(client, asha) == []
+    # ...Ravi's own sync brings his ledger in step with the group.
+    await sync(client, ravi, gid)
+    ravi_net = nets((await client.get(f"{API}/groups/{gid}", headers=auth(ravi))).json())["Ravi"]
+    assert await books(client, ravi) == (300, ravi_net)  # now only his ₹3 share of Fuel; owes Asha
     # Outsiders can't preview.
     eve = await register(client, "eve@example.com")
     assert (await client.get(f"{API}/groups/{gid}/expenses/{fuel}/void-preview",
                              headers=auth(eve))).status_code == 404
 
 
-async def test_edit_amount_updates_mirror_and_refund_blocks_void(client):
+async def test_edit_amount_updates_share_entries_and_refund_blocks_void(client):
     asha, _ravi, gid, m = await setup(client)
     acc = await cash_account(client, asha)
     d = (await client.post(f"{API}/groups/{gid}/expenses", headers=auth(asha), json={
@@ -163,10 +190,16 @@ async def test_edit_amount_updates_mirror_and_refund_blocks_void(client):
     d = (await client.patch(f"{API}/groups/{gid}/expenses/{eid}", headers=auth(asha),
                             json={"amount_paise": 30001})).json()
     assert sum(s["share_paise"] for s in d["expenses"][0]["shares"]) == 30001
-    tx = (await personal(client, asha))[0]
-    assert tx["amount_paise"] == 30001
-    # A refund on the personal entry blocks the void (and the edit) instead of leaving them out of step.
-    r = await client.post(f"{API}/transactions/{tx['id']}/refunds", headers=auth(asha), json={"amount_paise": 1000})
+    mine = next(x["share_paise"] for x in d["expenses"][0]["shares"] if x["member_id"] == m["Asha"])
+    assert mine in (10000, 10001)  # 30001 = 10001 + 10000 + 10000, one paisa goes to one member
+    assert await books(client, asha) == (mine, 30001 - mine)
+    share = next(t for t in await personal(client, asha, "posted") if t["kind"] == "expense")
+    assert share["amount_paise"] == mine
+    # The paid transfer (2 legs) is always replaced; the share entry only if my share changed.
+    assert len(await personal(client, asha, "void")) == 2 + (mine != 10000)
+    # A refund on my share entry blocks the void (and the edit) instead of leaving them out of step.
+    r = await client.post(f"{API}/transactions/{share['id']}/refunds", headers=auth(asha),
+                          json={"amount_paise": 1000})
     assert r.status_code == 201, r.text
     r = await client.delete(f"{API}/groups/{gid}/expenses/{eid}", headers=auth(asha))
     assert r.status_code == 409 and "refund" in r.text

@@ -44,7 +44,7 @@ import { hashPin, isValidPin, lockoutDelayMs, verifyPin } from "../utils/pin";
 import { activeProfile, profileKey } from "../api/profile";
 import { api, ApiError, readSession, setOfflineGuard } from "../api/client";
 import { enqueue, ensureAccounts, pendingCount, pullAll, runOutbox, unsyncedIds, type OutboxOp } from "../api/sync";
-import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGroup, pullGroups, recordRemoteSettlement, voidRemoteExpense } from "../api/groups";
+import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGroup, linkRemoteLedger, pullGroups, recordRemoteSettlement, voidRemoteExpense } from "../api/groups";
 import type { AccountRefs } from "../api/mappers";
 
 interface FinanceContextType {
@@ -115,6 +115,8 @@ interface FinanceContextType {
   addGroupMember: (groupId: string, name: string, upiId?: string) => Promise<void>;
   /** Account mode: reload groups from the server (after joining, removing, etc.). */
   refreshGroups: (selectId?: string) => Promise<void>;
+  /** Account mode: record my share of this group in my own transactions (paid from my bank account). */
+  linkGroupLedger: (groupId: string) => Promise<void>;
   generateWhatsAppSummary: (groupId: string) => string;
   
   // Budgets & Goals
@@ -502,7 +504,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setCashWallet(w => ({ ...w, currentBalance: data.cashBalanceRupees, lastAdjustedDate: localDateString() }));
         // Show the account holder, never a sample/default name.
         setSettingsState(s => ({ ...s, name: data.user.fullName, email: data.user.email }));
-        if (pull) setGroups(await pullGroups());
+        // If a group's share-based entries were just synced, pull once more to show them (no loop:
+        // the second pull finds every ledger in sync).
+        if (pull) setGroups(await pullGroups(() => { setTimeout(() => syncNow(true), 100); }));
       }
       setCloud(c => ({ ...c, state: "idle", pending: pendingCount(PROFILE), message: res.error,
         lastSyncedAt: new Date().toISOString() }));
@@ -1034,6 +1038,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (selectId && fresh.some(g => g.id === selectId)) setSelectedGroupId(selectId);
   };
 
+  const linkGroupLedger = async (groupId: string) => {
+    if (PROFILE.kind !== "cloud") return;
+    const refs = refsRef.current || (refsRef.current = await ensureAccounts());
+    await linkRemoteLedger(groupId, refs.bankId);
+    await refreshGroups(groupId);
+    syncNow(true);
+  };
+
   const addGroupMember = async (groupId: string, name: string, upiId?: string) => {
     const clean = name.trim();
     if (!clean) return;
@@ -1562,6 +1574,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateGroup,
         addGroupMember,
         refreshGroups,
+        linkGroupLedger,
         generateWhatsAppSummary,
         addBudget,
         updateBudget,

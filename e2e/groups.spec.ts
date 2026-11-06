@@ -36,8 +36,15 @@ test("group split, invitation to a second account, settlement and a safe void", 
   const d1 = await groupDetail(request, aTok);
   expect(d1.expenses[0].shares.map((s: any) => s.share_paise).sort()).toEqual([3333, 3333, 3334]);
   expect(d1.members.reduce((s: number, m: any) => s + m.net_paise, 0)).toBe(0);
-  await expect.poll(async () => (await apiGet(request, aTok, "/api/v1/transactions?status=posted")).items
-    .map((t: any) => [t.description, t.amount_paise])).toEqual([["Group: Dinner", 10000]]);
+  // Share-based: Asha's spending is only her ₹33.34; the ₹66.66 she fronted is a transfer, not spending.
+  const spend = async () => (await apiGet(request, aTok, "/api/v1/transactions?status=posted")).items
+    .filter((t: any) => t.kind === "expense").map((t: any) => t.amount_paise);
+  await expect.poll(spend).toEqual([3334]);
+  const groupBalance = async () => (await apiGet(request, aTok, "/api/v1/accounts"))
+    .find((a: any) => a.account_type === "group")?.balance_paise;
+  await expect.poll(groupBalance).toBe(6666);
+  await expect(page.getByTestId("my-group-ledger")).toContainText("only your share");
+  await expect(page.getByTestId("my-group-ledger")).toContainText("Others owe you ₹66.66");
 
   // Invite Ravi's seat; the code is shown once.
   await page.getByRole("button", { name: /Members & Balances/ }).click();
@@ -84,13 +91,15 @@ test("group split, invitation to a second account, settlement and a safe void", 
   await page.getByRole("button", { name: "Delete expense Dinner" }).click();
   const message = await dialog;
   expect(message).toContain("will need to pay back");
-  expect(message).toContain("entry in your own transactions will be removed");
+  expect(message).toContain("Your share of it will be removed from your own transactions");
   await expect.poll(async () => (await groupDetail(request, aTok))?.expenses[0].status).toBe("void");
   const d2 = await groupDetail(request, aTok);
   expect(d2.settlements.filter((s: any) => s.status === "recorded").length).toBe(1);
   expect(d2.members.reduce((s: number, m: any) => s + m.net_paise, 0)).toBe(0);
   expect(Object.fromEntries(d2.members.map((m: any) => [m.display_name, m.net_paise]))).toMatchObject({ "Ravi": 3333 });
-  await expect.poll(async () => (await apiGet(request, aTok, "/api/v1/transactions?status=posted")).items.length).toBe(0);
+  // Her share is no longer spending; Ravi's ₹33.33 payback stays, so her group account shows she owes it back.
+  await expect.poll(spend).toEqual([]);
+  await expect.poll(groupBalance).toBe(-3333);
 
   // Removing a member who is owed money is refused with a clear message.
   await page.getByRole("button", { name: /Members & Balances/ }).click();

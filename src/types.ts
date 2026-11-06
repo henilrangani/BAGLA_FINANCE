@@ -177,6 +177,8 @@ export interface Group {
   myRole?: "admin" | "member";
   /** Account groups only: people removed from the group (kept so old entries still show a name). */
   formerMembers?: GroupMember[];
+  /** Account groups only: my share-based entries in my own transactions (DECISIONS D12). */
+  myLedger?: { linked: boolean; inSync?: boolean; balance?: number };
 }
 
 export interface FamilyMember {

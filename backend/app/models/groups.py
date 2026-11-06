@@ -82,6 +82,19 @@ class SplitExpense(Base, UUIDMixin, TimestampMixin):
         Uuid, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
 
 
+class SplitLedgerLink(Base, UUIDMixin, TimestampMixin):
+    """A member's opt-in to share-based entries in their own ledger for one group."""
+    __tablename__ = "split_ledger_links"
+    __table_args__ = (UniqueConstraint("group_id", "user_id", name="uq_split_ledger_link"),)
+
+    group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("split_groups.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    member_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("split_members.id", ondelete="CASCADE"))
+    group_account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("financial_accounts.id", ondelete="CASCADE"))
+    funding_account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("financial_accounts.id",
+                                                                         ondelete="CASCADE"))
+
+
 class SplitShare(Base, UUIDMixin):
     __tablename__ = "split_shares"
     __table_args__ = (

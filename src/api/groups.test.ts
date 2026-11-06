@@ -123,6 +123,10 @@ describe("describeVoid", () => {
     expect(text).toContain("Asha will need to pay back Ravi ₹33.33");
     expect(text).toContain("entry in your own transactions will be removed");
   });
+  it("explains that only my share leaves my transactions", () => {
+    const text = describeVoid("Cab", { ...base, personal_entry: "share_ledger_updates" }, id => names[id]);
+    expect(text).toContain("Your share of it will be removed from your own transactions");
+  });
   it("stays short when nothing flips", () => {
     const text = describeVoid("Cab", base, id => names[id]);
     expect(text).not.toContain("pay back");
