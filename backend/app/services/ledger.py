@@ -140,6 +140,20 @@ async def _commit_or_replay(db: AsyncSession, user_id: uuid.UUID, key: str | Non
         return existing
 
 
+async def _flush_or_replay(db: AsyncSession, user_id: uuid.UUID, key: str | None) -> Transaction | None:
+    """Flush the insert; if a simultaneous retry with the same idempotency key won the race, the unique
+    constraint fires here (not at commit), so roll back and return the row that was saved."""
+    try:
+        await db.flush()
+        return None
+    except IntegrityError:
+        await db.rollback()
+        existing = await _existing_by_key(db, user_id, key)
+        if existing is None:
+            raise
+        return existing
+
+
 async def _get_tx(db: AsyncSession, user_id: uuid.UUID, tx_id: uuid.UUID, lock: bool = False) -> Transaction:
     q = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
     if lock:
@@ -194,10 +208,13 @@ async def create_transaction(db: AsyncSession, user: User, data: TransactionCrea
         idempotency_key=data.idempotency_key,
     )
     db.add(tx)
-    await db.flush()
-    audit(db, user.id, "transaction", tx.id, "create", None, snapshot(tx))
-    replay = await _commit_or_replay(db, user.id, data.idempotency_key)
+    replay = await _flush_or_replay(db, user.id, data.idempotency_key)
+    if replay is None:
+        audit(db, user.id, "transaction", tx.id, "create", None, snapshot(tx))
+        replay = await _commit_or_replay(db, user.id, data.idempotency_key)
     if replay:
+        if not _same_request(replay, data.account_id, data.amount_paise, data.kind):
+            raise conflict("Idempotency key was already used for a different transaction")
         return replay, True
     await db.refresh(tx)
     return tx, False
@@ -228,10 +245,11 @@ async def create_transfer(db: AsyncSession, user: User, data: TransferCreate) ->
     out_leg = Transaction(account_id=src.id, direction="debit", idempotency_key=key_out, **common)
     in_leg = Transaction(account_id=dst.id, direction="credit", idempotency_key=key_in, **common)
     db.add_all([out_leg, in_leg])
-    await db.flush()
-    audit(db, user.id, "transaction", out_leg.id, "create", None, snapshot(out_leg))
-    audit(db, user.id, "transaction", in_leg.id, "create", None, snapshot(in_leg))
-    replay = await _commit_or_replay(db, user.id, key_out)
+    replay = await _flush_or_replay(db, user.id, key_out)
+    if replay is None:
+        audit(db, user.id, "transaction", out_leg.id, "create", None, snapshot(out_leg))
+        audit(db, user.id, "transaction", in_leg.id, "create", None, snapshot(in_leg))
+        replay = await _commit_or_replay(db, user.id, key_out)
     if replay:
         partner = await _existing_by_key(db, user.id, key_in)
         return replay, partner, True
@@ -269,10 +287,18 @@ async def create_refund(
         timezone=zone, source="manual", refund_of_id=original.id, idempotency_key=data.idempotency_key,
     )
     db.add(tx)
-    await db.flush()
-    audit(db, user.id, "transaction", tx.id, "create", None, snapshot(tx))
-    replay = await _commit_or_replay(db, user.id, data.idempotency_key)
+    replay = await _flush_or_replay(db, user.id, data.idempotency_key)
+    if replay is None:
+        # Defence in depth: re-check the cap after writing, inside this transaction. The row lock above
+        # serialises refunds on PostgreSQL; this also holds where locks aren't available (SQLite).
+        if await _refunded_total(db, original.id) > original.amount_paise:
+            await db.rollback()
+            raise conflict("Refunds would exceed the original amount (another refund was just recorded)")
+        audit(db, user.id, "transaction", tx.id, "create", None, snapshot(tx))
+        replay = await _commit_or_replay(db, user.id, data.idempotency_key)
     if replay:
+        if replay.refund_of_id != original_id or replay.amount_paise != data.amount_paise:
+            raise conflict("Idempotency key was already used for a different refund")
         return replay, True
     await db.refresh(tx)
     return tx, False

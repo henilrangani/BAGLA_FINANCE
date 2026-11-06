@@ -156,3 +156,37 @@ async def test_import_rejects_bad_files_and_other_users(client):
     b = (await preview(client, h, acc, HDFC_STYLE)).json()
     assert (await client.get(f"{API}/imports/{b['id']}", headers=auth(other))).status_code == 404
     assert (await client.post(f"{API}/imports/{b['id']}/commit", headers=auth(other), json={})).status_code == 404
+
+
+SBI_STYLE_WITH_BALANCE = """Txn Date,Value Date,Description,Ref No./Cheque No.,Debit,Credit,Balance
+05 Nov 2026,05 Nov 2026,TO TRANSFER-UPI/DR/ZOMATO,,"1,234.56",,"98,765.44"
+06 Nov 2026,06 Nov 2026,BY TRANSFER-NEFT SALARY,,,"75,000.00","1,73,765.44"
+07 Nov 2026,07 Nov 2026,ATM WDL,,(500.00),,"1,73,265.44"
+"""
+
+
+async def test_bank_balance_column_is_never_treated_as_authoritative(client):
+    """A statement's running Balance column must not override or adjust the account: only the rows'
+    debits and credits are imported, on top of the account's own opening balance."""
+    h = await register(client)
+    acc = await new_account(client, h, opening=10_000)  # Rs 100.00 opening, deliberately unlike the statement
+    b = (await preview(client, h, acc, SBI_STYLE_WITH_BALANCE)).json()
+    assert [r["amount_paise"] for r in b["rows"]] == [123_456, 7_500_000, 50_000]
+    assert [r["direction"] for r in b["rows"]] == ["debit", "credit", "debit"]
+    assert [r["local_date"] for r in b["rows"]] == ["2026-11-05", "2026-11-06", "2026-11-07"]
+    c = await client.post(f"{API}/imports/{b['id']}/commit", headers=auth(h), json={})
+    assert c.json()["imported_count"] == 3
+    bal = (await client.get(f"{API}/accounts/{acc}", headers=auth(h))).json()["balance_paise"]
+    assert bal == 10_000 - 123_456 + 7_500_000 - 50_000  # not the statement's 1,73,265.44
+    tx = (await client.get(f"{API}/transactions?limit=50", headers=auth(h))).json()["items"]
+    assert len(tx) == 3 and not any(t["kind"] == "adjustment" for t in tx)  # no invented balancing entry
+
+
+async def test_cancelled_import_saves_nothing(client):
+    h = await register(client)
+    acc = await new_account(client, h, opening=0)
+    b = (await preview(client, h, acc, SBI_STYLE_WITH_BALANCE)).json()
+    assert (await client.post(f"{API}/imports/{b['id']}/cancel", headers=auth(h), json={})).status_code == 200
+    assert (await client.post(f"{API}/imports/{b['id']}/commit", headers=auth(h), json={})).status_code in (404, 409)
+    assert (await client.get(f"{API}/transactions?limit=50", headers=auth(h))).json()["items"] == []
+    assert (await client.get(f"{API}/accounts/{acc}", headers=auth(h))).json()["balance_paise"] == 0

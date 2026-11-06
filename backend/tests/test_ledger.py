@@ -213,3 +213,22 @@ async def test_archived_account_rejects_new_entries(client):
     r = await client.post(f"{API}/transactions", headers=auth(h), json={
         "account_id": acc, "amount_paise": 1, "kind": "expense", "description": "x"})
     assert r.status_code == 409
+
+
+async def test_simultaneous_retries_post_once_and_refunds_never_exceed_the_original(client):
+    import asyncio
+    h = await register(client)
+    acc = await cash_account(client, h)
+    headers = {**auth(h), "Idempotency-Key": "race-key-000001"}
+    body = {"account_id": acc, "amount_paise": 10_000, "kind": "expense", "description": "dinner"}
+    results = await asyncio.gather(*[client.post(f"{API}/transactions", headers=headers, json=body) for _ in range(4)])
+    assert all(r.status_code in (200, 201) for r in results), [r.text for r in results]
+    assert len({r.json()["id"] for r in results}) == 1  # one entry, however many retries arrive together
+    assert await balance(client, h, acc) == -10_000
+    tx_id = results[0].json()["id"]
+    # Two refunds of Rs 60 each against a Rs 100 expense, at the same moment: at most one succeeds.
+    r1, r2 = await asyncio.gather(
+        client.post(f"{API}/transactions/{tx_id}/refunds", headers=auth(h), json={"amount_paise": 6_000}),
+        client.post(f"{API}/transactions/{tx_id}/refunds", headers=auth(h), json={"amount_paise": 6_000}))
+    assert sorted([r1.status_code, r2.status_code]) in ([201, 409], [201, 422])
+    assert await balance(client, h, acc) == -10_000 + 6_000
