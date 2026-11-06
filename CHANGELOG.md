@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta.rc1 (local release candidate), 2026-11-06
+- Downloadable package: Docker Compose stack (separate DB volume, migrate job, API, scheduler, web, nginx gateway on one origin), Windows start/stop/status/seed/backup scripts, `.env.release.example`.
+- Fixed: page reloads from one IP could lock out sign-in (refresh now has its own rate-limit bucket).
+- Fixed: payment sync demo presented as live; demo data contained real-format UPI IDs, phone numbers and the founder's name.
+- Added: in-app download of the full account export.
+- Docs: README_RELEASE, SETUP_WINDOWS, BETA_USER_GUIDE, RELEASE_TEST_REPORT, BETA_DEPLOYMENT_CHECKLIST.
+
 ## Unreleased (beta preparation), 2026-11-06
 - Legacy DB: read-only reconciliation tool and preservation/import procedure; no changes to the database.
 - Reminder scheduler: advisory-lock single run, leased delivery (never twice), `job_runs` log (migration 0009), `/health/jobs`.
