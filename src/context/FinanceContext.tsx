@@ -44,7 +44,7 @@ import { hashPin, isValidPin, lockoutDelayMs, verifyPin } from "../utils/pin";
 import { activeProfile, profileKey } from "../api/profile";
 import { api, ApiError, readSession, setOfflineGuard } from "../api/client";
 import { enqueue, ensureAccounts, pendingCount, pullAll, runOutbox, unsyncedIds, type OutboxOp } from "../api/sync";
-import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGroup, linkRemoteLedger, pullGroups, recordRemoteSettlement, voidRemoteExpense } from "../api/groups";
+import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGroup, editRemoteExpense, linkRemoteLedger, pullGroups, recordRemoteSettlement, undoRemoteSettlement, voidRemoteExpense } from "../api/groups";
 import type { AccountRefs } from "../api/mappers";
 
 interface FinanceContextType {
@@ -117,6 +117,10 @@ interface FinanceContextType {
   refreshGroups: (selectId?: string) => Promise<void>;
   /** Account mode: record my share of this group in my own transactions (paid from my bank account). */
   linkGroupLedger: (groupId: string) => Promise<void>;
+  /** Account mode: edit a group expense (server re-splits a changed amount equally; audited). */
+  editGroupExpense: (groupId: string, expenseId: string, changes: { description?: string; amountRupees?: number }) => Promise<void>;
+  /** Account mode: undo a recorded payback (kept in history as voided). */
+  undoGroupSettlement: (groupId: string, settlementId: string) => Promise<void>;
   generateWhatsAppSummary: (groupId: string) => string;
   
   // Budgets & Goals
@@ -1038,6 +1042,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (selectId && fresh.some(g => g.id === selectId)) setSelectedGroupId(selectId);
   };
 
+  const editGroupExpense = async (groupId: string, expenseId: string,
+    changes: { description?: string; amountRupees?: number }) => {
+    if (PROFILE.kind !== "cloud") return;
+    await editRemoteExpense(groupId, expenseId, changes);
+    await refreshGroups(groupId);
+    syncNow(true);
+  };
+
+  const undoGroupSettlement = async (groupId: string, settlementId: string) => {
+    if (PROFILE.kind !== "cloud") return;
+    await undoRemoteSettlement(groupId, settlementId);
+    await refreshGroups(groupId);
+    syncNow(true);
+  };
+
   const linkGroupLedger = async (groupId: string) => {
     if (PROFILE.kind !== "cloud") return;
     const refs = refsRef.current || (refsRef.current = await ensureAccounts());
@@ -1575,6 +1594,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         addGroupMember,
         refreshGroups,
         linkGroupLedger,
+        editGroupExpense,
+        undoGroupSettlement,
         generateWhatsAppSummary,
         addBudget,
         updateBudget,

@@ -8,6 +8,7 @@ import { localDateString } from "../utils/dates";
 
 type Freq = "weekly" | "monthly" | "quarterly" | "yearly";
 import { monthlyPaise } from "../utils/recurring";
+import { RemindersPanel } from "../components/RemindersPanel";
 
 const card = "p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs space-y-4";
 const input = "w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-slate-700 bg-[#F2F4F7] dark:bg-slate-800 font-medium outline-none focus:ring-2 focus:ring-indigo-500";
@@ -265,7 +266,7 @@ export const SubscriptionsView: React.FC = () => {
             : "Saved on this device only. Sign in to keep them in your account."}
         </p>
       </div>
-      {account ? <AccountBills /> : <LocalBills />}
+      {account ? <><AccountBills /><RemindersPanel /></> : <LocalBills />}
     </div>
   );
 };

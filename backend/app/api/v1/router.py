@@ -7,6 +7,7 @@ from .routes import (
     family,
     family_finance,
     imports,
+    notifications,
     planning,
     recurring,
     reports,
@@ -26,6 +27,7 @@ api_router.include_router(planning.goals, prefix="/goals", tags=["goals"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(family.router, prefix="/families", tags=["family"])
 api_router.include_router(family_finance.router, prefix="/families", tags=["family"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(business.support, prefix="/support", tags=["support"])
 api_router.include_router(business.feedback, prefix="/feedback", tags=["feedback"])
 api_router.include_router(business.billing, prefix="/billing", tags=["billing"])

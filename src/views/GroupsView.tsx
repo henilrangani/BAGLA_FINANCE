@@ -51,8 +51,13 @@ export const GroupsView: React.FC = () => {
     transactions,
     addGroupMember,
     refreshGroups,
-    linkGroupLedger
+    linkGroupLedger,
+    editGroupExpense,
+    undoGroupSettlement
   } = useFinance();
+  const [editing, setEditing] = useState<{ id: string; description: string; amount: string } | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
+  const [rowBusy, setRowBusy] = useState("");
   const [ledgerBusy, setLedgerBusy] = useState(false);
   const [ledgerError, setLedgerError] = useState("");
   const accountMode = cloud.enabled && cloud.state !== "signed_out";
@@ -833,8 +838,8 @@ export const GroupsView: React.FC = () => {
                     const fromMember = activeGroup.members.find(m => m.id === st.fromMemberId);
                     const toMember = activeGroup.members.find(m => m.id === st.toMemberId);
                     return (
+                      <React.Fragment key={st.id}>
                       <div
-                        key={st.id}
                         className="p-3 rounded-xl bg-gray-50 dark:bg-slate-800/40 border border-gray-200/50 dark:border-slate-700/50 flex items-center justify-between text-xs"
                       >
                         <div className="flex items-center gap-2 text-gray-600 dark:text-slate-300 font-semibold">
@@ -843,10 +848,26 @@ export const GroupsView: React.FC = () => {
                             <strong>{fromMember?.name}</strong> paid <strong>{toMember?.name}</strong>
                           </span>
                         </div>
-                        <span className="font-bold text-gray-500 line-through">
-                          ₹{st.amount.toLocaleString("en-IN")}
+                        <span className="flex items-center gap-2">
+                          <span className="font-bold text-gray-500 line-through">{formatINR(st.amount)}</span>
+                          {accountMode && (
+                            <button disabled={rowBusy === st.id} aria-label={`Undo payment ${fromMember?.name} to ${toMember?.name}`}
+                              className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer disabled:opacity-60"
+                              onClick={async () => {
+                                const msg = `Undo "${fromMember?.name} paid ${toMember?.name} ${formatINR(st.amount)}"?\n\n` +
+                                  "Only do this if the payment didn't actually happen. It stays in the history as undone, " +
+                                  `and ${fromMember?.name} will owe ${formatINR(st.amount)} again.`;
+                                if (!window.confirm(msg)) return;
+                                setRowBusy(st.id); setRowError(null);
+                                try { await undoGroupSettlement(activeGroup.id, st.id); }
+                                catch (e) { setRowError({ id: st.id, message: (e as Error).message }); }
+                                finally { setRowBusy(""); }
+                              }}>Undo</button>
+                          )}
                         </span>
                       </div>
+                      {rowError?.id === st.id && <p role="alert" className="text-[11px] text-rose-600 font-semibold">{rowError.message}</p>}
+                      </React.Fragment>
                     );
                   })}
                 </div>
@@ -883,8 +904,8 @@ export const GroupsView: React.FC = () => {
                 const isPaidByMe = payer?.isCurrentUser;
 
                 return (
+                  <React.Fragment key={exp.id}>
                   <div
-                    key={exp.id}
                     className="p-4 rounded-2xl bg-[#F8FAFC] dark:bg-slate-800/50 border border-gray-200/60 dark:border-slate-700/60 flex items-center justify-between gap-3 group hover:border-emerald-300 dark:hover:border-slate-600 transition-all"
                   >
                     <div className="flex items-start gap-3">
@@ -907,8 +928,13 @@ export const GroupsView: React.FC = () => {
 
                     <div className="flex items-center gap-3">
                       <span className="text-sm sm:text-base font-black text-gray-900 dark:text-white">
-                        ₹{exp.amount.toLocaleString("en-IN")}
+                        {formatINR(exp.amount)}
                       </span>
+                      {accountMode && (
+                        <button onClick={() => { setRowError(null); setEditing({ id: exp.id, description: exp.description, amount: String(exp.amount) }); }}
+                          className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                          aria-label={`Edit expense ${exp.description}`}>Edit</button>
+                      )}
                       <button
                         onClick={() => handleDeleteExpense(exp)}
                         className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
@@ -919,6 +945,42 @@ export const GroupsView: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                  {editing?.id === exp.id && (
+                    <form className="p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900 space-y-2 text-xs"
+                      aria-label={`Edit ${exp.description}`}
+                      onSubmit={async e => {
+                        e.preventDefault();
+                        const parsed = parseRupeeInput(editing.amount);
+                        if (!editing.description.trim()) { setRowError({ id: exp.id, message: "Enter a description." }); return; }
+                        if (parsed.ok === false || parsed.rupees <= 0) {
+                          setRowError({ id: exp.id, message: parsed.ok === false ? parsed.error : "Enter an amount greater than zero." });
+                          return;
+                        }
+                        const changes: { description?: string; amountRupees?: number } = {};
+                        if (editing.description.trim() !== exp.description) changes.description = editing.description;
+                        if (parsed.rupees !== exp.amount) changes.amountRupees = parsed.rupees;
+                        if (!Object.keys(changes).length) { setEditing(null); return; }
+                        setRowBusy(exp.id); setRowError(null);
+                        try { await editGroupExpense(activeGroup.id, exp.id, changes); setEditing(null); }
+                        catch (err) { setRowError({ id: exp.id, message: (err as Error).message }); }
+                        finally { setRowBusy(""); }
+                      }}>
+                      <input className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        value={editing.description} onChange={e => setEditing({ ...editing, description: e.target.value })}
+                        aria-label="Expense description" maxLength={300} />
+                      <input className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        value={editing.amount} onChange={e => setEditing({ ...editing, amount: e.target.value })}
+                        aria-label="Expense amount in rupees" inputMode="decimal" />
+                      <p className="text-[10px] text-gray-500">A new amount is split equally again among the same people. The change is kept in the group's history.</p>
+                      <div className="flex gap-2">
+                        <button type="submit" disabled={rowBusy === exp.id} className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white font-bold cursor-pointer disabled:opacity-60">
+                          {rowBusy === exp.id ? "Saving…" : "Save"}</button>
+                        <button type="button" onClick={() => setEditing(null)} className="px-3 py-1.5 cursor-pointer">Cancel</button>
+                      </div>
+                    </form>
+                  )}
+                  {rowError?.id === exp.id && <p role="alert" className="text-[11px] text-rose-600 font-semibold">{rowError.message}</p>}
+                  </React.Fragment>
                 );
               })
             )}

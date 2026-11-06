@@ -202,3 +202,16 @@ export function claimErrorMessage(e: unknown): string {
   }
   return (e as Error)?.message || "Couldn't join right now. Please try again.";
 }
+
+/** Edit description/amount/date. A new amount is re-split equally among the same people (audited). */
+export const editRemoteExpense = (groupId: string, expenseId: string,
+  changes: { description?: string; amountRupees?: number; date?: string }) =>
+  api("PATCH", `/api/v1/groups/${groupId}/expenses/${expenseId}`, {
+    ...(changes.description !== undefined ? { description: changes.description.trim().slice(0, 300) } : {}),
+    ...(changes.amountRupees !== undefined ? { amount_paise: toPaise(Math.abs(safeRupees(changes.amountRupees))) } : {}),
+    ...(changes.date ? { expense_date: changes.date } : {}),
+  });
+
+/** Undo a recorded payback: it stays in the history as voided and balances are recalculated. */
+export const undoRemoteSettlement = (groupId: string, settlementId: string) =>
+  api("DELETE", `/api/v1/groups/${groupId}/settlements/${settlementId}`);
