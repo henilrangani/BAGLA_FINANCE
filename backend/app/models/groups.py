@@ -20,7 +20,18 @@ Recurring bills:
 import uuid
 from datetime import date
 
-from sqlalchemy import JSON, BigInteger, Boolean, CheckConstraint, Date, ForeignKey, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Date,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin, UUIDMixin

@@ -27,7 +27,7 @@ def shares_of(g, exp_index=0):
 # ---------------------------------------------------------------- allocation maths
 
 def test_weighted_allocation_sums_exactly_and_is_fair():
-    rng = random.Random(20261106)
+    rng = random.Random(20261106)  # noqa: S311 - reproducible test data, not security
     for _ in range(2000):
         n = rng.randint(1, 20)
         weights = [rng.randint(1, 10_000) for _ in range(n)]
@@ -35,7 +35,7 @@ def test_weighted_allocation_sums_exactly_and_is_fair():
         out = allocate_weighted(total, weights)
         assert sum(out) == total
         big_w = sum(weights)
-        for share, w in zip(out, weights):
+        for share, w in zip(out, weights, strict=True):
             exact_num = total * w  # share must be floor or ceil of total*w/W
             assert share * big_w <= exact_num + big_w and share * big_w >= exact_num - big_w
 
@@ -43,7 +43,8 @@ def test_weighted_allocation_sums_exactly_and_is_fair():
 @pytest.mark.parametrize("total,weights,expected", [
     (10_000, [1, 1, 1], [3334, 3333, 3333]),          # ₹100 three ways: the extra paisa goes first
     (1, [1, 1], [1, 0]),                               # a single paisa can't be halved
-    (99_999, [5000, 3000, 2000], [49999, 30000, 20000]),  # 50/30/20% of ₹999.99: remainders .5/.7/.8 -> 30% and 20% get the 2 paise
+    # 50/30/20% of ₹999.99: remainders .5/.7/.8, so the 30% and 20% shares get the 2 leftover paise
+    (99_999, [5000, 3000, 2000], [49999, 30000, 20000]),
     (10_001, [2, 1, 1], [5001, 2500, 2500]),           # shares 2:1:1
     (100, [3333, 3333, 3334], [33, 33, 34]),           # percentages 33.33/33.33/33.34
 ])
@@ -116,7 +117,8 @@ async def test_exact_split_amount_edit_keeps_ratio_and_equal_edit_stays_equal(cl
         "description": "Cab", "amount_paise": 300, "paid_by_member_id": me, "split": "exact",
         "shares": [{"member_id": me, "share_paise": 200}, {"member_id": m["Ravi"], "share_paise": 100}]})).json()
     eid = g["expenses"][0]["id"]
-    g = (await client.patch(f"{API}/groups/{g['id']}/expenses/{eid}", headers=auth(h), json={"amount_paise": 600})).json()
+    g = (await client.patch(f"{API}/groups/{g['id']}/expenses/{eid}", headers=auth(h),
+                            json={"amount_paise": 600})).json()
     assert shares_of(g) == {me: 400, m["Ravi"]: 200}
     g = (await client.post(f"{API}/groups/{g['id']}/expenses", headers=auth(h), json={
         "description": "Tea", "amount_paise": 101, "paid_by_member_id": me})).json()
@@ -155,7 +157,8 @@ async def test_group_type_and_custom_label(client):
     g = (await client.patch(f"{API}/groups/{g['id']}", headers=auth(h),
                             json={"name": None, "cover_emoji": "🏏", "description": "Weekend games"})).json()
     assert g["name"] == "Flat 12" and g["cover_emoji"] == "🏏" and g["description"] == "Weekend games"
-    assert (await client.post(f"{API}/groups", headers=auth(h), json={"name": "x", "group_type": "casino"})).status_code == 422
+    bad = await client.post(f"{API}/groups", headers=auth(h), json={"name": "x", "group_type": "casino"})
+    assert bad.status_code == 422
     listed = (await client.get(f"{API}/groups", headers=auth(h))).json()
     assert listed[0]["group_type"] == "trip"
 

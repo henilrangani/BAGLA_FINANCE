@@ -17,7 +17,10 @@ export default defineConfig({
   retries: 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  reporter: [["list"], ["json", { outputFile: `${OUT}/results.json` }]],
+  // On CI the "github" reporter turns failures into job annotations (readable without opening the logs).
+  reporter: process.env.CI
+    ? [["list"], ["github"], ["json", { outputFile: `${OUT}/results.json` }]]
+    : [["list"], ["json", { outputFile: `${OUT}/results.json` }]],
   use: {
     baseURL: APP,
     trace: "retain-on-failure",
