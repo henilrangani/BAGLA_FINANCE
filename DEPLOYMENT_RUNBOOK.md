@@ -10,7 +10,7 @@ Browser ──https──> app.<domain> (static React build + Node AI routes)
               FastAPI container (uvicorn, 2+ workers)
                      │
               Managed PostgreSQL 16 (daily backups + PITR, encrypted at rest)
-              Scheduler: every 15 min  →  python -m app.jobs.reminders
+              Scheduler: every 15 min  →  python -m app.jobs.reminders  (REMINDER_SCHEDULER.md)
 ```
 - **Same-origin API** is required by the current security design. The refresh cookie is first-party (SameSite=Lax) and the CSP stays `connect-src 'self'`. On Vercel this is a `rewrites` entry for `/api/v1/:path*` to the backend URL; on other hosts it's a reverse proxy rule. Without it, the deployed app cannot reach the API.
 - Redis isn't required yet. Rate limits are in memory per process, so with several API instances, move them to Redis or Postgres before scaling out.
@@ -24,13 +24,13 @@ Browser ──https──> app.<domain> (static React build + Node AI routes)
 6. Watch error logs and the 5xx rate for 30 minutes.
 
 ## Database migrations
-- Current head: `0008_notifications`. Chain 0001 → 0008, all additive since 0002.
+- Current head: `0009_job_runs`. Chain 0001 → 0009, all additive since 0002.
 - Before upgrading any existing database, follow these steps (as done for the local DB on 2026-11-06, see `DATABASE_AUDIT_2026-11-06.md`):
   1. Read `alembic_version` and the table/row counts.
   2. Back up the database and verify the dump hash.
   3. Restore into a scratch database and run the upgrade there first.
   4. Compare row counts and balances.
-- **Open decision for the existing local DB (rev 0001):** the meaning of the legacy `balance_paise` (opening vs running). Upgrading changes the derived bank balance by −₹500 if it was a running balance.
+- **Legacy local DB (rev 0001): decided 2026-11-06, never migrate or modify it.** It's kept read-only as an archive; any future import of its data follows `LEGACY_DATA_PROCEDURE.md` (owner-confirmed opening balances, audited, no invented adjustments).
 
 ## Backup and restore
 ```bash

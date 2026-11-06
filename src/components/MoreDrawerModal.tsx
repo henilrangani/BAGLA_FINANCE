@@ -36,7 +36,7 @@ export const MoreDrawerModal: React.FC<MoreDrawerModalProps> = ({
     { id: "account", label: "Account & Sync", desc: "Sign in, sync, move your data", icon: ShieldCheck, color: "text-emerald-600" },
     { id: "cloud", label: "Account features", desc: "Import, family sharing, support", icon: Users, color: "text-blue-600" },
     { id: "privacy", label: "Settings & Privacy", desc: "Data isolation & security vault", icon: ShieldCheck, color: "text-emerald-500" },
-    { id: "admin", label: "Telemetry & Logs", desc: "Performance & system status", icon: Activity, color: "text-indigo-500" }
+    { id: "admin", label: "System status", desc: "Live checks of the Bagla server", icon: Activity, color: "text-indigo-500" }
   ];
 
   return (

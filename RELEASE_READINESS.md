@@ -10,6 +10,21 @@ _2026-11-06 · branch `phase-1-security-money` · not merged, not deployed._
   3. Schedule the reminder job.
   4. Have counsel review the privacy notice and terms.
 
+## Exact beta blockers (2026-11-06)
+All are founder or external decisions. No open engineering defect blocks the beta.
+1. ★ **Choose and approve hosting**: recommended DigitalOcean App Platform + Managed PostgreSQL, Bangalore (HOSTING_OPTIONS.md). Confirm prices on the provider's pages.
+2. ★ **Provision a new beta database**; migrate to `0009_job_runs`, then run the backup + restore drill there (HOSTING_OPTIONS.md, DEPLOYMENT_RUNBOOK.md).
+3. ★ **Schedule the reminder job** and an uptime check on `/health` and `/health/jobs` (REMINDER_SCHEDULER.md).
+4. ★ **Counsel review** of `PRIVACY_NOTICE_DRAFT.md` and `TERMS_DRAFT.md`; grievance contact.
+5. ★ **Approve merge to `main` and the private-beta deployment.**
+
+Recommended, but not blocking a 20-person beta:
+- Secure the local legacy container (it listens on all interfaces with the default password).
+- An error tracker.
+- A real-phone smoke test.
+
+The legacy database stays untouched by decision (LEGACY_DATA_PROCEDURE.md). Beta users never connect to it.
+
 ## Status by item
 
 **PASS** (evidence in TEST_REPORT 2026-11-06):
@@ -39,12 +54,19 @@ _2026-11-06 · branch `phase-1-security-money` · not merged, not deployed._
 - Email delivery: provider choice.
 - Legal/compliance review.
 
+**Added 2026-11-06 (PASS):**
+- Browser E2E on Firefox, WebKit (Safari engine) and iPhone 13 (55/55 across 5 projects).
+- Dark-mode WCAG A/AA scan.
+- Reminder scheduler single-run lock, leased delivery and run monitoring.
+- Load test with ledger check (25 users, 925 requests, 0 errors, 0 mismatches).
+- Legacy DB preservation checks.
+
 **NOT TESTED:**
 - Real email or push delivery.
 - AI routes with a live Gemini key.
-- Dark-mode accessibility and screen readers.
-- Firefox/Safari.
-- Load and performance.
+- Screen readers (manual NVDA/TalkBack/VoiceOver pass).
+- Real Safari on macOS/iOS. Tested with Playwright's WebKit engine on Windows, which is close to but not identical to Safari.
+- Production-scale load (only a 25-user local test).
 - External penetration test.
 - Payment flows: none exist and none are claimed.
 

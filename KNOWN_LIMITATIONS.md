@@ -72,7 +72,11 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - Optimistic concurrency on groups: two people saving at the same instant gets one "Someone changed this group…, try again" message.
 
 ## Release hardening (2026-11-06)
-- Accessibility: the automated axe scan (WCAG 2 A/AA) passes on the 11 main screens in **light mode with empty data**. Dark mode, data-heavy states, modals and screen-reader behaviour have not been tested.
+- Accessibility: the automated axe scan (WCAG 2 A/AA) passes on the 11 main screens in **light and dark mode with empty data**. Data-heavy states, modals and screen-reader behaviour have not been tested.
 - Group edits re-split a changed amount **equally** among the same people; exact re-splits need void and re-add.
 - Rate limits are in memory per process; several API instances need a shared store.
 - The existing local database (rev 0001) has not been upgraded; see `DATABASE_AUDIT_2026-11-06.md` for the open balance-semantics question.
+- Cross-browser: tested with Playwright's Firefox and WebKit engines on Windows. Real Safari on macOS/iOS and real phones are untested.
+- The local E2E server sends the refresh cookie without `Secure` (plain http on 127.0.0.1); production enforces `Secure`.
+- `/health/jobs` is public (returns only the reminder job's last run time and status).
+- The System status page checks the API from the user's device; it isn't server monitoring.

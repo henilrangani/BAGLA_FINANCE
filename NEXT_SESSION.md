@@ -17,6 +17,12 @@ Account mode, sync/outbox, migration, Account features (import, family, support,
 ## Phase 4 batch 1: done (2026-11-05)
 Server-backed group splits (`/api/v1/groups`) and recurring bills (`/api/v1/recurring`), migration 0004, Groups + Subscriptions screens in account mode, migration of device groups/bills. See TEST_REPORT.
 
+## 2026-11-06 (later): beta preparation done
+- Commits after 72fb0ac: legacy tooling, scheduler hardening, dark mode / cross-browser / load testing, honest UI, planning docs.
+- Waiting on founder approvals (RELEASE_READINESS.md, "Exact beta blockers").
+- **Do not touch the legacy DB** (LEGACY_DATA_PROCEDURE.md).
+- Next engineering work once infra is approved: ROADMAP.md P0.
+
 ## 2026-11-06: release hardening done
 Commits on `phase-1-security-money`: 7fe3ad6 (cookie auth), dab9b36 (share-only group accounting), 6ae17a9 (reminders, edit, undo), 7c64386 (QA/a11y), then docs and export. Backend 90 passed (SQLite and PostgreSQL), frontend 99, E2E 17/17 (SQLite and PostgreSQL). See RELEASE_READINESS.md.
 

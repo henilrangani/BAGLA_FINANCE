@@ -2,6 +2,8 @@
 
 **2026-11-06:** the pre-resume backup (`backups/pre-resume-2026-11-06/…dump`) hash matched its record. It restored into an isolated PostgreSQL 16 container with identical revision (0001), tables, indexes, row counts and per-table content MD5. A rehearsal upgrade of that copy to 0006 preserved all users and transactions. See `DATABASE_AUDIT_2026-11-06.md` and `DEPLOYMENT_RUNBOOK.md`.
 
+**Legacy archive (2026-11-06):** two verified dumps of the untouched legacy DB (rev 0001) are kept under `backups/` with SHA-256 files; see `LEGACY_DATA_PROCEDURE.md`. Copy them off this computer (★).
+
 **Status (2026-11-05):** the dump/restore procedure below **was verified once locally** (PostgreSQL 16 in Docker). Row counts, net posted paise, opening balances, schema version and all 57 constraints matched after restore. **Production backups are not verified:** there's no production database yet, and the host's automated backups and PITR need their own restore test.
 
 ## Proposed targets (not guarantees)

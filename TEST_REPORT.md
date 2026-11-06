@@ -179,3 +179,24 @@ Not tested:
 - Real email or push delivery (no provider).
 - The AI routes with a live Gemini key.
 - Load and performance.
+
+## 2026-11-06 (later): beta preparation
+| Suite | Result |
+|---|---|
+| Backend, SQLite | 92 passed, 1 skipped (PostgreSQL-only lock test) |
+| Backend, PostgreSQL 16 (local, throwaway) | 93 passed |
+| Migrations up → down → up to `0009_job_runs` | PASS; `alembic check` clean |
+| Frontend unit | 99 passed; `tsc` 0 errors |
+| Browser E2E, all projects (Chromium desktop and mobile, Firefox, WebKit, iPhone 13) | **55/55** |
+| Dark-mode axe (11 screens) | 0 serious/critical (was 40 contrast failures) |
+| Load test (`scripts/load_test.py`, PostgreSQL, 2 workers, 25 users × 20 ops with retry storms) | 925 requests, 105 req/s, **0 errors, 0 ledger mismatches**. p50: tx create 115 ms, list 61 ms, register 1.2 s (Argon2 by design) |
+| Legacy DB | unchanged: same revision, tables and per-table MD5 as the 2026-11-06 audit; second dump's object list equals the original backup's |
+
+Defects found and fixed:
+- Toggle Theme did nothing.
+- Header overflow at 390 px.
+- Concurrent reminder delivery could send twice; now leased and tested with 3 workers.
+- Overlapping job runs.
+- A fake "Live Telemetry" admin page (hardcoded "200 OK", "180 ms", and a "UPI & Card ingestion: Listening" claim).
+- A "Go Premium / Upgrade Now" card for plans that don't exist.
+- Demo data labelled "RBI Account Aggregator: connected" with a personal handle.

@@ -78,19 +78,19 @@ export const INITIAL_USER_SETTINGS: UserSettings = {
 export const INITIAL_CONNECTIONS: FinancialConnection[] = [
   {
     id: "conn-1",
-    institutionName: "HDFC Bank (Salary Account)",
+    institutionName: "Sample bank account (demo, not connected)",
     type: "bank",
     accountNumberMasked: "••• 4821",
-    status: "connected",
+    status: "disconnected",
     lastSyncedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     isDemo: true
   },
   {
     id: "conn-2",
-    institutionName: "RBI Account Aggregator (Sahamati)",
+    institutionName: "Sample Account Aggregator link (demo, not connected)",
     type: "account_aggregator",
-    accountNumberMasked: "henil@aa",
-    status: "connected",
+    accountNumberMasked: "demo@aa",
+    status: "disconnected",
     lastSyncedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     isDemo: true
   },
@@ -99,7 +99,7 @@ export const INITIAL_CONNECTIONS: FinancialConnection[] = [
     institutionName: "UPI & SMS Transaction Parser",
     type: "sms_parser",
     accountNumberMasked: "Local Auto-Sync",
-    status: "connected",
+    status: "disconnected",
     lastSyncedAt: new Date().toISOString(),
     isDemo: true
   }

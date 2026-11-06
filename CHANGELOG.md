@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (beta preparation), 2026-11-06
+- Legacy DB: read-only reconciliation tool and preservation/import procedure; no changes to the database.
+- Reminder scheduler: advisory-lock single run, leased delivery (never twice), `job_runs` log (migration 0009), `/health/jobs`.
+- Dark mode fixed (the toggle works, first visit follows the OS); dark-mode WCAG scan clean; cross-browser E2E (Firefox, WebKit, iPhone); 360/390 px layouts.
+- Removed misleading UI: fake telemetry, "Go Premium" upsell, "connected" Account Aggregator demo label.
+- Load-test script with ledger verification.
+- Docs: HOSTING_OPTIONS, REMINDER_SCHEDULER, THIRD_PARTY_DATA_FLOWS, PRE_BETA_SECURITY_PRIVACY_CHECKLIST, PRIVACY_NOTICE_DRAFT, TERMS_DRAFT, CAPABILITY_AUDIT, ROADMAP, LEGACY_DATA_PROCEDURE.
+
 ## Unreleased (release hardening), 2026-11-06
 - Security: refresh token in an HttpOnly/Secure/SameSite cookie with CSRF protection, atomic rotation, concurrent-refresh grace and legacy-token upgrade; route-wide auth sweep; production builds call the API on the same origin.
 - Group accounting: your ledger records only your share; fronted money and paybacks are transfers via a "Group:" account (migration 0007); legacy full-amount entries replaced with an audit trail.

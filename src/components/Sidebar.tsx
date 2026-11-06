@@ -99,23 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
         })}
       </nav>
 
-      {/* Go Premium Upgrade Card (as in Image 2) */}
-      <div className="p-4 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-800/80 dark:to-slate-850 border border-gray-200/80 dark:border-slate-700/60 space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900 dark:text-white">
-          <Zap className="w-3.5 h-3.5 text-[#047857]" />
-          <span>Go Premium</span>
-        </div>
-        <p className="text-[11px] text-gray-500 dark:text-slate-400 leading-snug font-medium">
-          Unlock advanced analytics, unlimited groups, and more.
-        </p>
-        <button
-          onClick={() => setCurrentTab("admin")}
-          className="w-full py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-        >
-          <span>Upgrade Now</span>
-          <ArrowRight className="w-3 h-3" />
-        </button>
-      </div>
+      {/* (Removed a "Go Premium / Upgrade Now" card: no paid plans exist; see RELEASE_READINESS.) */}
 
       {/* User Profile Footer (as in Image 2) */}
       <div className="p-3.5 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between mx-2 mb-2 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
