@@ -64,6 +64,8 @@ Source: branch `phase-1-security-money`; see `BUILD_INFO.txt` for the exact comm
 
 ---
 
+## rc1: Beta Release Candidate (2026-11-06)
+
 
 Windows 11, Docker Desktop (WSL 2), Node 22 / Python 3.13 / PostgreSQL 16. Every number below comes from a run on 2026-11-06. Source: branch `phase-1-security-money`; see `BUILD_INFO.txt` for the exact commit.
 
