@@ -39,3 +39,10 @@
 
 ## Product controls still to build
 Consent records table and UI · privacy notice and terms pages · grievance contact · retention job · guardian flow for minors · cookie/analytics consent (no analytics are collected yet).
+
+## Update 2026-11-06 (engineering facts, not legal advice)
+- **Right of access:** `/users/me/export` now also includes recurring bills and occurrences, the user's own part of each group (their seat, expenses they paid or share, their settlements), group ledger links, family roles and own goal contributions, reminder preferences and notifications. Other people's personal data is not exported (only names shown inside shared spaces).
+- **Erasure:** tested with shared data present. Groups and families keep working for remaining members; the departing user's seat is unlinked, and contributions remain as "Former member".
+- **Sharing:** Family entries are private unless the owner shares one; one-tap "make all private"; removal revokes sharing.
+- **Reminders:** opt-out and quiet hours; email is opt-in and currently not sent.
+- **Still needed from counsel:** privacy notice, consent records, retention schedule, grievance officer, children's onboarding, breach-notification process.

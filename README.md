@@ -1,188 +1,55 @@
-# 💰 Bagla Finance
+# Bagla Finance
 
-> **Every Rupee. Clearly Managed.**
+> **Every Rupee. Clearly Managed.** An India-first personal, group and family finance app.
 
-Bagla Finance is a personal and group expense-tracking app built for Indian users. It offers fast cash logging, receipt scanning, AI-assisted entry, budgets, and WhatsApp-friendly bill splitting.
+**Status (2026-11-06): pre-beta.** Not deployed. No bank, UPI app or Account Aggregator is connected. No payment gateway is connected, and paid plans aren't offered. Email isn't sent (no provider). See `RELEASE_READINESS.md` and `KNOWN_LIMITATIONS.md`.
 
-> **Current status: early prototype.** Data is stored only in your browser (unencrypted, single device). No bank, UPI app or Account Aggregator is connected. See `BUILD_STATUS.md` and `KNOWN_LIMITATIONS.md`.
+## What works (tested; see `TEST_REPORT.md`)
+- **Accounts and sessions:** email/password (Argon2id). Access token in memory; refresh token in an HttpOnly, Secure, SameSite cookie with rotation and CSRF protection.
+- **Ledger in integer paise:** income, expense, transfers (never counted as spending), refunds linked to the original, reversals, and voids with history. Statement import (CSV/XLSX) with duplicate detection.
+- **Budgets and goals.** Recurring bills with due dates, mark-paid-once, skip, pause, and reminders (in app; quiet hours; opt-out).
+- **Group splits:**
+  - Equal or exact shares, minimum-transfer suggestions, settlements capped at what's owed.
+  - One-time invite codes, edit and void with explanations.
+  - Your own ledger records **only your share**; money you fronted or got back is tracked as transfers.
+- **Family Space:** members and roles, entries private unless their owner shares one, shared budgets and goals, per-member contributions, and an activity feed.
+- **Device-only mode:** works without an account; data stays in that browser. You can move it into an account later.
+- **AI is advisory only:** it can suggest, never change your ledger or start a payment.
 
----
-
-## 🌟 Key Features
-
-- **⚡ Payment Sync Demo**: Simulated payment notifications show how automatic tracking could work. No real bank or UPI integration yet.
-- **💵 1-Tap Physical Cash Ledger**: Log Chai (₹20), Auto (₹60), Sabzi (₹180), Milk (₹75), and Food in under 3 seconds with auto-reconciling physical wallet balances.
-- **🌙 10:00 PM Nightly Cash Habit Routine**: Automated nightly reminder modal with native browser notification permissions to record unlogged cash spends.
-- **👥 Zero-App WhatsApp Bill Splitting**: Instant group expense settlement calculations with formatted WhatsApp export messages and direct settlement deep-links.
-- **📊 Analytics, Budgets & Financial Goals**: Visual cash flow charts, category budget progress bars, recurring subscription management, and savings goal trackers.
-- **🤖 Bagla AI Assistant & Receipt Scanner**: Instant conversational financial insights, smart query parsing, and receipt text extraction.
-- **🛡️ Privacy Controls & Stealth Mode**: Offline mode (the app makes no AI or API requests), a PIN privacy screen (the PIN is stored as a salted hash), a balance mask, and one-click deletion of local data.
-- **📱 Progressive Web App (PWA)**: Full standalone home-screen app experience on Android and iOS without app store fees.
-
----
-
-## 🛠️ Technology Stack & Architecture
-
-- **Frontend Framework**: React 19 + TypeScript
-- **Build Tool**: Vite 6
-- **Styling**: Tailwind CSS v4
-- **Animations & Transitions**: Motion (`motion/react`)
-- **Icons**: Lucide React (`lucide-react`)
-- **Visualizations & Charts**: Recharts & Canvas-Confetti
-- **Serverless API Architecture (Vercel)**: Dedicated serverless function endpoints in `/api` with `@google/genai` lazy-loading
-- **Local Dev Server**: Express (Node.js) + Vite middleware
-- **Data Persistence**: Local Storage & IndexedDB (Client-First Privacy Architecture)
-
----
-
-## 📁 Project Structure
-
-```text
-bagla-finance/
-├── api/                    # Vercel Serverless Functions
-│   ├── ai/
-│   │   ├── parse-expense.ts # Natural language & voice expense parser
-│   │   ├── scan-receipt.ts  # Multimodal receipt & bill OCR parser
-│   │   ├── chat.ts          # Grounded Bagla AI financial assistant
-│   │   ├── daily-summary.ts # Daily summary insight text
-│   │   └── anomalies.ts     # Spending anomaly & bill shock detector
-│   └── webhooks/
-│       └── payment-sync.ts  # Live payment sync webhook receiver
-├── public/                 # Static public assets (icons, manifest, robots, sitemap)
-│   ├── icon.svg            # High-resolution vector PWA app icon
-│   ├── manifest.json       # Progressive Web App configuration manifest
-│   ├── robots.txt          # Search engine crawler instructions
-│   └── sitemap.xml         # XML sitemap for SEO discovery
-├── src/
-│   ├── components/         # Reusable UI components & modals
-│   │   ├── BaglaAiChat.tsx
-│   │   ├── BaglaLogo.tsx
-│   │   ├── FastAddExpenseModal.tsx
-│   │   ├── LivePaymentSyncBanner.tsx
-│   │   ├── NightlyCashReminderModal.tsx
-│   │   ├── ReceiptScannerModal.tsx
-│   │   ├── VoiceExpenseModal.tsx
-│   │   └── ...
-│   ├── context/            # Global state context
-│   │   └── FinanceContext.tsx
-│   ├── services/           # Data services & initial state fixtures
-│   │   └── data.ts
-│   ├── views/              # Main application views & dashboard tabs
-│   │   ├── DashboardView.tsx
-│   │   ├── TransactionsView.tsx
-│   │   ├── AnalyticsView.tsx
-│   │   ├── BudgetsGoalsView.tsx
-│   │   ├── GroupsView.tsx
-│   │   ├── FamilyView.tsx
-│   │   ├── SubscriptionsView.tsx
-│   │   ├── CashWalletView.tsx
-│   │   └── PrivacyCenterView.tsx
-│   ├── App.tsx             # Root application orchestrator
-│   ├── index.css           # Global Tailwind CSS stylesheet
-│   ├── main.tsx            # Vite React DOM entrypoint
-│   └── types.ts            # TypeScript interfaces & type definitions
-├── index.html              # HTML document template with SEO & OpenGraph tags
-├── package.json            # NPM project manifest & scripts
-├── tsconfig.json           # TypeScript configuration
-├── vercel.json             # Vercel SPA routing & API serverless configuration
-├── vite.config.ts          # Vite build pipeline configuration
-├── server.ts               # Local Express development server
-├── .env.example            # Environment variable template
-└── README.md               # Project documentation
-```
-
----
-
-## 💻 Local Installation & Development
-
-### 1. Prerequisites
-- Node.js 18.x or 20.x installed
-- NPM, Yarn, PNPM, or Bun
-
-### 2. Clone & Install
+## Run locally
 ```bash
-# Clone repository
-git clone https://github.com/your-username/bagla-finance.git
-cd bagla-finance
-
-# Install dependencies
-npm install
+# Backend (Python 3.13)
+cd backend && python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt   # (bin/ on macOS/Linux)
+export DATABASE_URL=postgresql+asyncpg://bagla:PASS@127.0.0.1:5432/bagla_finance JWT_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(48))")
+.venv/Scripts/python -m alembic upgrade head      # read DEPLOYMENT_RUNBOOK.md before upgrading an existing DB
+.venv/Scripts/python -m uvicorn app.main:app --port 8000
+# Web app
+npm ci && VITE_API_URL=http://127.0.0.1:8000 npm run dev
 ```
+All settings: `ENVIRONMENT.md`.
 
-### 3. Start Development Server
+## Tests
 ```bash
-npm run dev
+npm test                 # unit tests (Vitest)
+npm run lint             # TypeScript
+npm run e2e              # browser suite (Playwright): real API on a fresh SQLite DB + Vite
+cd backend && pytest -q  # backend; TEST_DATABASE_URL=postgresql+asyncpg://… runs it on PostgreSQL
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+CI (`.github/workflows/ci.yml`) runs:
+- Frontend checks.
+- The backend on SQLite and PostgreSQL 16.
+- Migrations up/down/up plus `alembic check`.
+- The browser suite on PostgreSQL.
 
----
+## Documentation
+| Topic | File |
+|---|---|
+| Architecture and decisions | `ARCHITECTURE.md`, `DECISIONS.md` |
+| API and database | `API_DOCUMENTATION.md`, `DATABASE_SCHEMA.md` |
+| Deployment, backups, rollback | `DEPLOYMENT_RUNBOOK.md`, `DISASTER_RECOVERY.md`, `RUNBOOK.md` |
+| Security and privacy | `SECURITY_AUDIT.md`, `SECURITY_CHECKLIST.md`, `PRIVACY_COMPLIANCE_READINESS.md` |
+| Testing | `TEST_REPORT.md` |
+| Release readiness | `RELEASE_READINESS.md`, `LAUNCH_CHECKLIST.md`, `KNOWN_LIMITATIONS.md` |
+| Costs and support | `COST_ANALYSIS.md`, `CUSTOMER_SUPPORT_GUIDE.md` |
 
-## 🏗️ Production Build
-
-To test and create the production-ready static assets:
-
-```bash
-npm run build
-```
-This outputs compiled, optimized assets to the `dist/` directory.
-
----
-
-## 🔑 Environment Variables
-
-Inspect `.env.example` for all configurable environment variables:
-
-| Variable | Description | Required? |
-| :--- | :--- | :--- |
-| `GEMINI_API_KEY` | Google Gemini API key (server-only). | Optional: AI routes fall back to rule-based logic |
-| `GEMINI_MODEL` | Gemini model name; verify availability and pricing. | Optional |
-| `WEBHOOK_SECRET` | HMAC secret for `/api/webhooks/payment-sync`. The endpoint is disabled without it. | Optional |
-| `ALLOWED_ORIGINS` | Extra browser origins allowed to call `/api`. | Optional |
-| `HOST`, `PORT`, `TRUST_PROXY` | Local server binding and proxy trust. | Optional |
-
-## ✅ Tests
-
-```bash
-npm run lint   # TypeScript
-npm test       # unit tests (money, ledger, CSV, PIN, settlements, server security)
-npm run build
-```
-
-> ⚠️ **IMPORTANT SECURITY NOTE**: Never commit `.env` or real API keys/credentials to public GitHub repositories.
-
----
-
-## 🚀 Deploying to Vercel (Step-by-Step)
-
-### 1. Push to GitHub
-Upload or push your complete source code to a GitHub repository named `bagla-finance`.
-
-### 2. Import into Vercel
-1. Log in to [Vercel](https://vercel.com) with your GitHub account.
-2. Click **"Add New..."** → **"Project"**.
-3. Locate `bagla-finance` and click **"Import"**.
-
-### 3. Configure Project Settings
-- **Framework Preset**: `Vite` *(Auto-detected)*
-- **Root Directory**: `./`
-- **Build Command**: `vite build`
-- **Output Directory**: `dist`
-- **Environment Variables**: Add `GEMINI_API_KEY` if you want live server-side Gemini AI features (optional).
-
-### 4. Deploy
-Click **"Deploy"**. Vercel will build the frontend into `dist/` and automatically provision all `/api/*` routes as Serverless Functions.
-
----
-
-## 🔒 Security & Privacy
-
-- **No banking credentials**: the app never asks for or stores UPI PINs, card CVVs, OTPs or netbanking passwords.
-- **Local storage, not encrypted**: records live in your browser's `localStorage`. Anyone with access to the browser profile can read them. The PIN lock is a privacy screen, not encryption.
-- **AI data use**: in online mode, the text, receipt image or spending summary you submit is sent to our server and to Google Gemini for processing. Offline mode stops all such requests.
-- **Server protections**: input validation, size limits, rate limits, same-origin checks, security headers and a signed webhook (see `CHANGELOG.md`).
-- **Compliance**: no legal or regulatory review has been done yet. The app makes no compliance claims.
-
----
-
-## 📄 License
-MIT License. Free to use, adapt, and deploy.
+No compliance certification, bank partnership or end-to-end encryption is claimed.

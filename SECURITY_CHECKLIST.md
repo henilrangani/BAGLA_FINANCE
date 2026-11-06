@@ -42,3 +42,12 @@ UPI PIN · OTP · CVV · bank passwords · private keys. None of the code paths 
 - RBI/NPCI: confirm the product stays record-keeping only; Account Aggregator access only via a licensed AA and the FIU route
 - Google Play policy for any future notification-listener app
 - Terms of service, privacy policy, grievance officer
+
+## Added 2026-11-06
+- [x] Refresh token in an HttpOnly cookie; CSRF header + Origin check; atomic rotation
+- [x] Route-wide authentication sweep test; cross-account id probes
+- [x] CSV export formula-injection guard
+- [x] Export covers all personal data categories; deletion keeps shared spaces for others
+- [ ] Same-origin `/api/v1` rewrite configured on the chosen host (deployment ★)
+- [ ] Shared rate-limit store before running more than one API instance
+- [ ] External penetration test before public launch

@@ -17,6 +17,15 @@ Account mode, sync/outbox, migration, Account features (import, family, support,
 ## Phase 4 batch 1: done (2026-11-05)
 Server-backed group splits (`/api/v1/groups`) and recurring bills (`/api/v1/recurring`), migration 0004, Groups + Subscriptions screens in account mode, migration of device groups/bills. See TEST_REPORT.
 
+## 2026-11-06: release hardening done
+Commits on `phase-1-security-money`: 7fe3ad6 (cookie auth), dab9b36 (share-only group accounting), 6ae17a9 (reminders, edit, undo), 7c64386 (QA/a11y), then docs and export. Backend 90 passed (SQLite and PostgreSQL), frontend 99, E2E 17/17 (SQLite and PostgreSQL). See RELEASE_READINESS.md.
+
+**Open decisions:**
+1. Existing local DB at rev 0001: meaning of `balance_paise` before any upgrade (`DATABASE_AUDIT_2026-11-06.md`).
+2. Hosting and the same-origin rewrite.
+3. Email provider.
+4. Legal review.
+
 ## Phase 4 batch 2: done (2026-11-05)
 Group void integrity + invitations UI, Family Space on the server, recurring edit, Playwright suite (`npm run e2e`, 12 journeys) + CI `e2e` job on PostgreSQL. See TEST_REPORT and RELEASE_READINESS.md.
 

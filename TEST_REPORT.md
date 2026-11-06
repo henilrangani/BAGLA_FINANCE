@@ -137,3 +137,45 @@ All runs from `D:\BAGLA_FINANCE_WORKSPACE\main-app`; C: free space unchanged by 
   12. Mobile (Pixel 7): bottom bar and More drawer navigation; no horizontal scroll.
 - Bugs the suite found (fixed): Goals nav opened Budgets; "₹8,000.5" formatting; 86 px header overflow on phones; expired session shown as a generic sync error; refresh 422 retried forever; unlabelled add-expense fields; the member-card "Settle" and edit-form flows needed stable markup.
 - **PostgreSQL browser verification: pending locally.** The new CI `e2e` job runs the same suite on PostgreSQL 16; see that run's result.
+
+## 2026-11-06: Release hardening (Phases 0-6)
+All results below were observed in this session. Local PostgreSQL ran in throwaway containers (tmpfs); the live database was never written.
+
+| Suite | Result |
+|---|---|
+| Backend, SQLite | **90 passed** |
+| Backend, PostgreSQL 16 (local) | **90 passed** |
+| Migrations up → down → up to `0008_notifications` (PostgreSQL) | **PASS**; `alembic check`: no drift |
+| Frontend unit (Vitest) | **99 passed** |
+| TypeScript (`tsc --noEmit`) | **0 errors** |
+| Production build | **PASS** |
+| Browser E2E (Playwright, Chromium), SQLite | **17/17** |
+| Browser E2E, PostgreSQL 16 (local) | **17/17** |
+| GitHub Actions | 7fe3ad6 ✅, dab9b36 ✅, 6ae17a9 ✅ (frontend, backend, e2e on PostgreSQL); later commits: see CI |
+| ruff / bandit / pip-audit / npm audit | clean / no findings / no known vulns / 0 vulns |
+| axe WCAG 2 A/AA, 11 screens (light, empty data) | **0 violations** (was 3 critical + 66 serious) |
+
+New tests this batch:
+- Cookie auth (4) and the route-wide auth sweep.
+- Cross-account id probes, no secrets in responses, export coverage, account deletion with shared data.
+- Share-ledger invariants (6), including a seeded randomized sequence.
+- Reminders (7).
+- E2E: cookie upgrade, group edit/undo, reminder preferences, every-screen sweep with axe, keyboard-only entry.
+
+Defects found and fixed:
+- Logout revoked the session before the CSRF check.
+- Concurrent refresh created two sessions on SQLite.
+- A refunded share entry could fall out of step with its group.
+- The reminder queue crashed after a duplicate rollback.
+- Notification index drift between model and migration.
+- Unlabelled filter selects.
+- WCAG contrast failures.
+- CSV formula injection and broken quoting in the transactions export.
+- The export omitted recurring bills, groups, family and reminders.
+- Chart axis showed "₹0.004k".
+
+Not tested:
+- Dark-mode accessibility; Firefox/Safari.
+- Real email or push delivery (no provider).
+- The AI routes with a live Gemini key.
+- Load and performance.

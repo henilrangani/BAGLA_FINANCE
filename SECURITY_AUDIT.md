@@ -75,3 +75,16 @@ Tools: `bandit -r app` (no findings), `pip-audit -r requirements.txt` (no known 
 - `.gitignore` now excludes `test-results/`, `playwright-output/`, `creds*.txt` and `*.e2e.db`.
 
 **Not done:** no external penetration test; no DPDP/RBI compliance review. Refresh token still in localStorage (CSP-mitigated; httpOnly cookie planned).
+
+## 2026-11-06: Release hardening review
+| Area | Result |
+|---|---|
+| Sessions | Refresh token moved to an HttpOnly/Secure/SameSite=Lax cookie scoped to `/api/v1/auth`, rotated atomically; 20 s concurrent-refresh grace; replay afterwards revokes all sessions; legacy localStorage tokens upgraded once and removed. **PASS** (tests + E2E) |
+| CSRF | Cookie endpoints need `X-Bagla-CSRF` + allowed Origin; checked **before** any state change (a bug where logout revoked first was found and fixed). **PASS** |
+| Authorisation | Every non-public route returns 401 without/with a bad token (route-table sweep, ≥60 routes); other accounts' ids return 404 across ledger, budgets, goals, recurring, groups, family. **PASS** |
+| Data exposure | No password/token hashes in `/users/me` or export; production bundle contains no server secrets. **PASS** |
+| Financial integrity | Share-only group accounting with exact-paise invariants; concurrency-safe settlements, voids and rotations (conditional updates + optimistic versions). **PASS** |
+| Imports | 700 KB / 5,000 rows, defusedxml, validated base64; CSV export neutralises formulas. **PASS** |
+| AI | No database or ledger API access in `lib/`; key server-side only; outputs re-validated; actions need a user click. Advisory only. **PASS** (code review) |
+| Config guards | Insecure cookie, SameSite=None without Secure, or AUTH_RATE_LIMIT > 20 are refused in staging/production. **PASS** |
+| Not done | External penetration test; dependency licence review; dark-pattern/consent review by counsel. **NOT TESTED** |

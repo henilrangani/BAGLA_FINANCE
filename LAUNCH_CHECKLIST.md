@@ -1,25 +1,23 @@
-# Launch Checklist & Release Readiness
+# Launch Checklist
 
-## Current classification: **NOT READY**
-The backend is built and tested, but the React app doesn't use it yet. Users still have browser-only data, there are no sign-in screens, and nothing has run on a live PostgreSQL locally or been deployed.
+_2026-11-06. ★ = founder decision or approval._
 
-| Gate | Status | Evidence / gap |
-|---|---|---|
-| 1 Functionality | ❌ | Frontend works on its own; backend is API-only; integration (Phase 3) not started |
-| 2 Financial accuracy | 🟡 | 75 frontend + 49 backend tests cover paise maths, splits (₹100/3, ₹100.01/5), refunds, transfers, budgets, rollover, imports; dashboard doesn't yet read the server ledger |
-| 3 Security | 🟡 | No known critical issues open (`SECURITY_AUDIT.md`); no pen test; RLS and shared rate limits pending |
-| 4 Data safety | 🟡 | Export ✅, delete ✅; on PostgreSQL: migrations up/down/up ✅, legacy-data mapping ✅, local dump/restore ✅; production backups and browser→server migration not done |
-| 5 Quality | 🟡 | Unit and API tests ✅; CI configured; end-to-end (Playwright) not built |
-| 6 Performance & accessibility | ❌ | Not measured (990 kB bundle noted); no accessibility audit |
-| 7 Operations | 🟡 | Runbook, deployment and DR docs ✅; no monitoring, no deployment |
-| 8 Customer experience | 🟡 | Support and feedback APIs ✅; no UI, no email |
-| 9 Marketing | ⬜ | Deliberately deferred until the product is verified |
-| 10 External approvals | ⬜ | List below |
+## Closed beta
+- [x] CI green: frontend, backend on SQLite and PostgreSQL, migrations, E2E on PostgreSQL
+- [x] Backups: procedure verified on a real dump (hash + isolated restore)
+- [x] Security: cookie sessions, CSRF, isolation sweep, scans clean
+- [x] Financial integrity tests (paise, splits, share-only accounting, concurrency)
+- [ ] ★ Host + domain; configure the `/api/v1` same-origin rewrite (DEPLOYMENT_RUNBOOK)
+- [ ] ★ Managed PostgreSQL with daily backups + PITR; run one restore drill there
+- [ ] Schedule `python -m app.jobs.reminders` every ~15 min
+- [ ] Set production env vars (ENVIRONMENT.md); generate JWT_SECRET in the host's secret store
+- [ ] ★ Privacy notice + terms reviewed by counsel; grievance contact
+- [ ] Smoke test on a real Android phone and an iPhone
+- [ ] ★ Approve merge to `main` and the deployment
 
-## Founder actions / approvals needed
-1. (Done 2026-11-05: Docker Desktop is running; local PostgreSQL checks pass.)
-2. Choose hosting (frontend, backend, Postgres with backups); see `COST_ANALYSIS.md`.
-3. Decide an email provider (verification, password reset, support notifications).
-4. Legal review using `PRIVACY_COMPLIANCE_READINESS.md`; privacy notice and terms.
-5. Subscription prices (none are set; the code never invents them) and a payment gateway with merchant KYC, when ready.
-6. Approve any merge to `main` and any production deployment.
+## Before public launch (additional)
+- [ ] ★ Email provider (password reset, invites, reminder emails)
+- [ ] Shared rate-limit store; monitoring and alerts (DEPLOYMENT_RUNBOOK)
+- [ ] External penetration test; dark-mode/screen-reader accessibility pass
+- [ ] ★ Decide on paid plans and gateway (none exist today)
+- [ ] Marketing copy reviewed against verified features only

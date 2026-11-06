@@ -20,3 +20,9 @@
 
 ## Recommendation for the first ~200 users
 Budget for a small paid Postgres with backups. That's the one place free tiers create real risk of data loss. Everything else can start on free tiers.
+
+## Update 2026-11-06
+- **Spend is still ₹0.** Added only free, open-source dev tools (`@playwright/test`, `@axe-core/playwright`).
+- New running cost to plan: a scheduler for the reminder job, every ~15 min. Most hosts include cron or scheduled jobs, or it can run as a tiny worker beside the API.
+- Email for invites and reminders needs a provider: free monthly quotas exist; domain setup required; founder decision.
+- Rough closed-beta budget (≤ 50 users): a small paid managed PostgreSQL with backups, plus one small API instance and static hosting. **Verify current prices on each provider's page; no quotes are claimed here.**

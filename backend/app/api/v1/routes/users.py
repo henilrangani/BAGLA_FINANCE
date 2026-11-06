@@ -77,6 +77,78 @@ async def export_my_data(user: User = Depends(get_current_user), db: AsyncSessio
                                for c in contribs],
         "audit_events": [_row(e, ("id", "entity_type", "entity_id", "action", "before", "after", "created_at"))
                          for e in audits],
+        **(await _export_shared(db, uid)),
+    }
+
+
+async def _export_shared(db: AsyncSession, uid) -> dict:
+    """Recurring bills, reminders, and the user's own part of groups and families.
+    Other people's personal data is not included: only names as shown inside a shared space."""
+    from app.models import (
+        FamilyGroup,
+        FamilyMember,
+        Notification,
+        NotificationPreference,
+        RecurringBill,
+        RecurringOccurrence,
+        SplitExpense,
+        SplitGroup,
+        SplitLedgerLink,
+        SplitMember,
+        SplitSettlement,
+        SplitShare,
+    )
+    from app.models.family_finance import FamilyGoal, FamilyGoalContribution
+
+    bills = list(await db.scalars(select(RecurringBill).where(RecurringBill.user_id == uid)))
+    occ = list(await db.scalars(select(RecurringOccurrence).where(
+        RecurringOccurrence.bill_id.in_([b.id for b in bills])))) if bills else []
+    seats = list(await db.scalars(select(SplitMember).where(SplitMember.user_id == uid)))
+    groups = []
+    for seat in seats:
+        g = await db.get(SplitGroup, seat.group_id)
+        exps = list(await db.scalars(select(SplitExpense).where(SplitExpense.group_id == g.id)))
+        my_shares = {s.expense_id: s.share_paise for s in await db.scalars(select(SplitShare).where(
+            SplitShare.member_id == seat.id))}
+        setts = list(await db.scalars(select(SplitSettlement).where(
+            SplitSettlement.group_id == g.id,
+            (SplitSettlement.from_member_id == seat.id) | (SplitSettlement.to_member_id == seat.id))))
+        groups.append({
+            "group": _row(g, ("id", "name", "currency", "created_at")),
+            "my_member": _row(seat, ("id", "display_name", "upi_id", "role", "status")),
+            "expenses_i_paid_or_share": [
+                {**_row(e, ("id", "description", "amount_paise", "expense_date", "status")),
+                 "i_paid": e.paid_by_member_id == seat.id, "my_share_paise": my_shares.get(e.id, 0)}
+                for e in exps if e.paid_by_member_id == seat.id or e.id in my_shares],
+            "my_settlements": [{**_row(x, ("id", "amount_paise", "method", "status", "created_at")),
+                                "direction": "paid" if x.from_member_id == seat.id else "received"} for x in setts],
+        })
+    links = list(await db.scalars(select(SplitLedgerLink).where(SplitLedgerLink.user_id == uid)))
+    fams = list(await db.scalars(select(FamilyMember).where(FamilyMember.user_id == uid)))
+    families = []
+    for fm in fams:
+        f = await db.get(FamilyGroup, fm.family_id)
+        goals = {g.id: g.name for g in await db.scalars(select(FamilyGoal).where(FamilyGoal.family_id == f.id))}
+        contribs = list(await db.scalars(select(FamilyGoalContribution).where(
+            FamilyGoalContribution.user_id == uid,
+            FamilyGoalContribution.goal_id.in_(list(goals))))) if goals else []
+        families.append({"family": _row(f, ("id", "name", "created_at")), "my_role": fm.role, "status": fm.status,
+                         "my_goal_contributions": [{**_row(c, ("id", "amount_paise", "note", "contributed_on",
+                                                                "status")), "goal": goals.get(c.goal_id)}
+                                                   for c in contribs]})
+    pref = await db.scalar(select(NotificationPreference).where(NotificationPreference.user_id == uid))
+    notes = list(await db.scalars(select(Notification).where(Notification.user_id == uid)))
+    return {
+        "recurring_bills": [_row(b, ("id", "name", "amount_paise", "currency", "category", "frequency", "start_date",
+                                     "end_date", "status", "remind_days_before")) for b in bills],
+        "recurring_occurrences": [_row(o, ("id", "bill_id", "due_date", "status", "transaction_id")) for o in occ],
+        "groups": groups,
+        "group_ledger_links": [_row(lk, ("group_id", "group_account_id", "funding_account_id")) for lk in links],
+        "families": families,
+        "notification_preferences": _row(pref, ("bill_reminders", "email_enabled", "quiet_start", "quiet_end"))
+        if pref else None,
+        "notifications": [_row(n, ("id", "kind", "channel", "title", "body", "status", "created_at", "read_at"))
+                          for n in notes],
     }
 
 

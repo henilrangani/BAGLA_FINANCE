@@ -27,3 +27,9 @@ First response within 2 working days. Security issues same day.
 | "Import says 'couldn't find header row'" | The file needs Date plus Amount or Debit/Credit columns; export the bank statement as CSV or XLSX (not PDF or old .xls) |
 | "Locked out" | 5 wrong passwords lock the account for 15 minutes. Password reset by email isn't available yet |
 | "App PIN forgotten" (browser app) | Clearing the site data removes the PIN **and all local data**. Download the backup first if the app is still open |
+
+## New in 2026-11-06 (what to tell users)
+- **"My spending looks lower after a group trip."** Correct: with "Track my share" on, only your share counts as spending. The rest you paid is shown as money others owe you in the "Group: <name>" account.
+- **"I undid a payment by mistake."** Undo only records that a payment didn't happen. Ask the payer to record it again; the history keeps both.
+- **"I didn't get a reminder email."** Email isn't connected yet; reminders appear in the app (Recurring → Reminders). Check quiet hours and the reminder toggle.
+- **"I was signed out."** Sessions end after 30 days or when signed out elsewhere. Local changes are kept and sync after signing in.

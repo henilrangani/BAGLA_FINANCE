@@ -93,5 +93,22 @@ Active members only (others get 404). Roles: admin/adult manage budgets and goal
 - `POST /recurring/{id}/occurrences/{YYYY-MM-DD}/pay`: the date must be on the schedule (422), the bill must be active (409) and have an account. Posts one ledger expense with key `rec:{bill}:{date}`; repeating it is a no-op. `POST …/skip` marks it skipped.
 - Each bill view includes `overdue_dates`, `next_due_date`, `reminder_due`, `history`.
 
+## Browser sessions (2026-11-06)
+- Web clients send `X-Bagla-Client: web`. register, login and refresh then set the HttpOnly cookie `bagla_rt` (path `/api/v1/auth`) and return `refresh_token: null`.
+- `POST /auth/refresh` with no body uses the cookie and requires `X-Bagla-CSRF: 1` plus an allowed `Origin` (otherwise 403).
+- Web `logout`/`logout-all` also require the CSRF header and clear the cookie.
+- API clients (no web header) keep JSON body tokens.
+
+## My share of a group (2026-11-06)
+- `POST /groups/{id}/ledger {funding_account_id}` turns on share-based entries in my own ledger.
+- `POST /groups/{id}/ledger/sync` → `{sync: {created, voided, conflicts}, group}`.
+- Group detail includes `my_ledger: {linked, account_id, balance_paise, in_sync}`.
+- `personal_account_id` on expense create links automatically.
+
+## Notifications (2026-11-06)
+- `GET /notifications`: my delivered in-app items (latest 50). `POST /notifications/{id}/read`; `POST /notifications/read-all`.
+- `GET/PATCH /notifications/preferences {bill_reminders, email_enabled, quiet_start, quiet_end}`. The response includes `email_delivery_available: false` (no provider).
+- Scheduler: `python -m app.jobs.reminders` (idempotent; run every ~15 min).
+
 ## Admin (staff only; `users.is_admin` set in the database; others get 404)
 `GET /admin/overview` (counts only) · `GET/PATCH /admin/tickets` · `GET /admin/feedback` · `PUT /admin/plans` (price optional; never invented).

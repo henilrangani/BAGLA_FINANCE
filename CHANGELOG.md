@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (release hardening), 2026-11-06
+- Security: refresh token in an HttpOnly/Secure/SameSite cookie with CSRF protection, atomic rotation, concurrent-refresh grace and legacy-token upgrade; route-wide auth sweep; production builds call the API on the same origin.
+- Group accounting: your ledger records only your share; fronted money and paybacks are transfers via a "Group:" account (migration 0007); legacy full-amount entries replaced with an audit trail.
+- Groups: edit an expense, undo a payback; reminders with preferences, quiet hours, opt-out and retries; honest email status (migration 0008).
+- QA: every-screen sweep with axe (0 WCAG A/AA violations, light mode), keyboard entry, CSV formula-injection guard, complete data export, contrast palette.
+- Docs: ENVIRONMENT.md, DEPLOYMENT_RUNBOOK.md, DATABASE_AUDIT_2026-11-06.md, README rewrite.
+
 ## Unreleased (Phase 4 batch 2: group integrity, invitations, Family Space, automated E2E), 2026-11-05
 - **Group expense integrity:**
   - Voiding never touches recorded settlements (real money that changed hands).

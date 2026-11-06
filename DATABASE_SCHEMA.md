@@ -54,6 +54,13 @@ Money columns are `BIGINT` minor units (paise for INR). Timestamps are `TIMESTAM
 - `family_goal_contributions` (goal, `user_id` SET NULL so history survives account deletion, `amount_paise` > 0, note, `contributed_on`, status recorded|void, unique `(goal_id, idempotency_key)`).
 - Spending figures are never stored: they're computed from `transactions.shared_family_id`.
 
+## Migration 0007: share-based group accounting (additive)
+- `financial_accounts.account_type` gains `group`; new `split_ledger_links` (group, user, member, group_account_id, funding_account_id; unique (group, user)).
+- Share entries live in `transactions` with idempotency keys `gl:<group>:<entity>:<role>:<amount>#<n>`.
+
+## Migration 0008: notifications (additive)
+- `notification_preferences` (one per user) and `notifications` (outbox: channel in_app|email; status pending|delivered|failed|skipped; attempts; next_attempt_at; unique (user, channel, dedupe_key)).
+
 ## Browser data migration (planned, Phase 3)
 1. The user signs in, then chooses "Move my data to my account".
 2. The app exports its `localStorage` ledger as JSON and keeps the local copy unchanged.

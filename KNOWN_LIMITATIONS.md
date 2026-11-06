@@ -29,7 +29,7 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - Amounts are stored as exact-paise rupee numbers, not integer fields (see DECISIONS D1).
 - No UI yet to create `transfer` or `refund` entries manually, or to link a refund to its original expense.
 - Deleting a transaction removes it from storage. There's no soft-delete or audit trail yet.
-- A group expense paid by the user is also logged as a personal expense of the **full** amount, not the user's share.
+- (Fixed 2026-11-06) Group spending in an account now enters your ledger as your share only (DECISIONS D12). In device-only mode a group expense you paid is still logged as a personal expense of the full amount.
 - The daily summary's 30-day average divides by 30 even for users with less history.
 
 ## Product and UX
@@ -45,7 +45,7 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - Legal and compliance review (DPDP, RBI/NPCI) hasn't happened. The app makes no compliance claims.
 
 ## Phase 3 integration (2026-11-05)
-- Refresh token is stored in localStorage (readable by page scripts; mitigated by the strict CSP). Planned: httpOnly cookie.
+- (Fixed 2026-11-06) The refresh token is now an HttpOnly, Secure, SameSite cookie. The deployed app must reach the API on its own origin (a `/api/v1` rewrite, see DEPLOYMENT_RUNBOOK).
 - In account mode, the family space screen and the cash-wallet denomination register remain device-only. Server-backed family sharing lives on the "Account features" screen. (Group splits and recurring bills are server-backed since 2026-11-05.)
 - Local transfers/refunds can't be synced from the app screens yet (the mapper refuses them rather than guessing); migration reports them as "not supported yet".
 - Payment method is inferred from the server account on pull (cash account → cash, others → bank/UPI), so a local "credit card" label may come back as "bank transfer".
@@ -58,8 +58,9 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - Invite codes are shared by the admin themselves (copy or WhatsApp); no email or SMS is sent.
 - Migration matches groups and bills by name: a device group whose name already exists in the account is not uploaded (reported as "already there"). Migrated bills start at their next due date and charge the account's cash account when marked paid.
 - Voiding a group expense keeps recorded settlements by design (DECISIONS D9): if money was already paid back, the app explains who must now pay whom back and asks for confirmation. A recorded settlement that never really happened has to be undone separately (API only; no UI button yet).
-- The personal "Group: …" entry records the **full** amount you paid, not your share; money paid back to you isn't recorded as income automatically. Group expenses added before 2026-11-05 batch 2 have no linked personal entry.
-- Recurring "mark paid" needs a linked account. No push/email reminder is sent yet (`reminder_due` is computed but nothing delivers it).
+- Share-based group entries are written to *your* ledger when you act in the group or open it (others' changes sync on your next visit). Turn on "Track my share" per group; groups you never open aren't reflected in your transactions.
+- Recurring "mark paid" needs a linked account.
+- Reminders are delivered **in the app only** and only when the scheduled job runs (`python -m app.jobs.reminders`, which has to be scheduled on the host). Email is opt-in but no provider is connected, so nothing is emailed (recorded as skipped). There are no push notifications.
 - `alembic upgrade` fails on SQLite (async driver, MissingGreenlet). Dev/E2E SQLite databases are created from the models; PostgreSQL migrations run in CI.
 
 ## Family Space (2026-11-05 batch 2)
@@ -69,3 +70,9 @@ _As of 2026-11-04, after Phase 2 batch 2._
 - No notifications when someone joins, shares or contributes (the activity feed shows it).
 - The device-only Family screen can't invite anyone; inviting needs an account.
 - Optimistic concurrency on groups: two people saving at the same instant gets one "Someone changed this group…, try again" message.
+
+## Release hardening (2026-11-06)
+- Accessibility: the automated axe scan (WCAG 2 A/AA) passes on the 11 main screens in **light mode with empty data**. Dark mode, data-heavy states, modals and screen-reader behaviour have not been tested.
+- Group edits re-split a changed amount **equally** among the same people; exact re-splits need void and re-add.
+- Rate limits are in memory per process; several API instances need a shared store.
+- The existing local database (rev 0001) has not been upgraded; see `DATABASE_AUDIT_2026-11-06.md` for the open balance-semantics question.
