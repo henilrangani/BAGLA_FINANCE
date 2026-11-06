@@ -13,6 +13,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { countsTowardTotals, netSpend, totalIncome } from "../utils/ledger";
+import { SpendingReports } from "../components/SpendingReports";
 import { addRupees, normalizeRupees, safeRupees, subtractRupees } from "../utils/money";
 
 export const AnalyticsView: React.FC = () => {
@@ -31,7 +32,8 @@ export const AnalyticsView: React.FC = () => {
   // Helper to determine if a date string falls in the current / previous timeframe
   const isDateInTimeframe = (dateStr: string, tf: "month" | "quarter" | "year", period: "current" | "previous"): boolean => {
     if (!dateStr) return false;
-    const d = new Date(dateStr);
+    const parts = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+    const d = parts ? new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])) : new Date(dateStr);
     if (isNaN(d.getTime())) return false;
 
     const y = d.getFullYear();
@@ -214,7 +216,7 @@ export const AnalyticsView: React.FC = () => {
             ₹{totalIncomeAmount.toLocaleString("en-IN")}
           </div>
           <span className="text-[11px] text-gray-500 dark:text-slate-400 font-medium mt-1 block">
-            {timeframe === "month" ? "Monthly income" : timeframe === "quarter" ? "Quarterly income" : "Annual income"} + credits
+            {recordedIncome > 0 ? "Recorded income" : totalIncomeAmount > 0 ? "Estimate from your profile (no income recorded)" : "No income recorded"}
           </span>
         </div>
 
@@ -254,6 +256,8 @@ export const AnalyticsView: React.FC = () => {
           </span>
         </div>
       </div>
+
+      <SpendingReports />
 
       {/* Financial Health Score Bento Box */}
       <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 text-white shadow-md space-y-6 border border-slate-800">
