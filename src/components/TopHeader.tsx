@@ -242,10 +242,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
         <button
           id="btn-add-expense-header"
           onClick={() => setIsAddExpenseOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white bg-[#047857] hover:bg-[#065f46] rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+          aria-label="Add expense"
+          className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white bg-[#047857] hover:bg-[#065f46] rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>+ Add Expense</span>
+          {/* Phones show the icon only (the bottom bar also has Add Expense), so the header fits 360 px. */}
+          <span className="hidden sm:inline">+ Add Expense</span>
         </button>
       </div>
     </header>

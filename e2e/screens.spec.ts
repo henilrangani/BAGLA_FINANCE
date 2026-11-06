@@ -60,3 +60,21 @@ test("keyboard: the sidebar and the add-expense form are reachable and usable wi
   await nav(page, "Transactions");
   await expect(page.getByText("Keyboard Kirana").first()).toBeVisible();
 });
+
+
+test("dark mode: the theme toggle works and every main screen passes the WCAG A/AA scan", async ({ page }) => {
+  await signUpViaUI(page, newUser("Dark Test"));
+  await page.getByRole("button", { name: /Toggle Theme/i }).first().click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  const bg = await page.evaluate(() => getComputedStyle(document.querySelector("main")!.parentElement!).backgroundColor);
+  const report: Record<string, string[]> = {};
+  for (const [label, heading] of SCREENS) {
+    await nav(page, label);
+    await expect(page.locator("main").getByText(heading).first()).toBeVisible();
+    const axe = await new AxeBuilder({ page }).include("main").withTags(["wcag2a", "wcag2aa"]).analyze();
+    const bad = axe.violations.filter(v => v.impact === "critical" || v.impact === "serious");
+    if (bad.length) report[label] = bad.map(v => `${v.id} (${v.nodes.length})`);
+  }
+  console.log("DARK_AXE", JSON.stringify(report), "bg", bg);
+  expect(report).toEqual({});
+});

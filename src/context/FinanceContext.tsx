@@ -219,7 +219,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [settings, setSettingsState] = useState<UserSettings>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     // Account mode never shows demo sample data.
-    return { ...INITIAL_USER_SETTINGS, ...(safeParse(saved) || {}), ...(PROFILE.kind === "cloud" ? { isDemoMode: false } : {}) };
+    // First visit: follow the device's light/dark preference; afterwards the Toggle Theme choice is kept.
+    let prefersDark = false;
+    try { prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false; } catch { /* no matchMedia */ }
+    return { ...INITIAL_USER_SETTINGS, darkMode: prefersDark, ...(safeParse(saved) || {}),
+      ...(PROFILE.kind === "cloud" ? { isDemoMode: false } : {}) };
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {

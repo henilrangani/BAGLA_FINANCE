@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Dark mode follows the app's own Toggle Theme setting (class "dark" on <html>), not only the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Accessibility (WCAG 2.1 AA, 4.5:1 for normal text): Tailwind's default gray-400/500 are too
    light on white and light-grey cards; these keep the same look, slightly darker. Brand green
    is #047857 (emerald-700) for the same reason; see TEST_REPORT (axe colour-contrast). */
@@ -11,4 +14,18 @@
   --color-rose-500: #d1003b;
   --color-rose-600: #b8002f;
   --color-indigo-500: #4f46e5;
+}
+
+/* Dark mode: text tones that have no dark: variant in the markup are remapped to lighter values
+   so they meet 4.5:1 on the dark slate backgrounds (axe scan, TEST_REPORT 2026-11-06). */
+.dark {
+  --color-gray-400: #a3a9b5;
+  --color-gray-500: #9aa1ad;
+  --color-gray-600: #b4bac4;
+  --color-slate-500: #94a3b8;
+  --color-rose-500: #fb7185;
+}
+.dark .text-\[\#047857\],
+.dark .text-emerald-600 {
+  color: #34d399; /* text only: emerald backgrounds keep their white-text contrast */
 }

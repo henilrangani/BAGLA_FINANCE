@@ -10,7 +10,8 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test --project=desktop --project=mobile",
+    "e2e:browsers": "playwright test --project=firefox --project=webkit --project=iphone"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

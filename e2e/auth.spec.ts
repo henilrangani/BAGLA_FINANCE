@@ -10,7 +10,10 @@ test("registration, sign-in on a fresh browser, and session survives reload", as
   const rt = (await page.context().cookies()).find(c => c.name === "bagla_rt");
   expect(rt?.httpOnly).toBe(true);
   expect(rt?.path).toBe("/api/v1/auth");
-  expect(rt?.sameSite).toBe("Lax");
+  // SameSite as sent by the server (WebKit's cookie API reports "None" on some platforms).
+  const r = await page.request.post("http://127.0.0.1:8010/api/v1/auth/login", {
+    headers: { "X-Bagla-Client": "web" }, data: { email: u.email, password: u.password } });
+  expect(r.headers()["set-cookie"]).toMatch(/bagla_rt=.*HttpOnly.*SameSite=lax/i);
   expect(await page.evaluate(() => document.cookie)).not.toContain("bagla_rt");
   await page.reload();
   await expectGreeting(page, u);

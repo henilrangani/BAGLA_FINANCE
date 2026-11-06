@@ -113,7 +113,7 @@ jobs:
           export JWT_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
           alembic upgrade head
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
+      - run: npx playwright test --project=desktop --project=mobile
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

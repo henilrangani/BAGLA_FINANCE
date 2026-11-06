@@ -29,6 +29,11 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 860 } }, testIgnore: /mobile\.spec/ },
     { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /mobile\.spec/ },
+    // Cross-browser: the same journeys in Firefox and WebKit (Safari's engine) and an iPhone
+    // profile. `npm run e2e` runs desktop+mobile (Chromium); `npm run e2e:browsers` runs these.
+    { name: "firefox", use: { ...devices["Desktop Firefox"], viewport: { width: 1280, height: 860 } }, testIgnore: /mobile\.spec/ },
+    { name: "webkit", use: { ...devices["Desktop Safari"], viewport: { width: 1280, height: 860 } }, testIgnore: /mobile\.spec/ },
+    { name: "iphone", use: { ...devices["iPhone 13"] }, testMatch: /mobile\.spec/ },
   ],
   webServer: [
     { command: "node e2e/start-backend.mjs", url: `${API}/health`, reuseExistingServer: false, timeout: 120_000,

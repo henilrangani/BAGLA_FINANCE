@@ -34,6 +34,9 @@ const env = {
   ENVIRONMENT: "development",
   CORS_ORIGINS: appOrigin,
   AUTH_RATE_LIMIT: "1000", // many synthetic sign-ins from one IP; refused in staging/production
+  // The suite serves http://127.0.0.1; WebKit (Safari) won't store Secure cookies over plain http
+  // there, unlike Chromium/Firefox. Production keeps Secure (refused otherwise; see config tests).
+  REFRESH_COOKIE_SECURE: "false",
   PYTHONIOENCODING: "utf-8",
 };
 const child = spawn(python, ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", port],

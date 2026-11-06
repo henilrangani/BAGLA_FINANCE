@@ -20,3 +20,12 @@ test("mobile navigation: bottom bar and More drawer reach every main screen", as
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
+
+test("no horizontal scroll on a small Android phone (360 px)", async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  await openApp(page);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  await ctx.close();
+});
