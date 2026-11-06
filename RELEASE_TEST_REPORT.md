@@ -1,4 +1,69 @@
-# Release Test Report: Beta Release Candidate (2026-11-06)
+# Release Test Report
+
+## RC4 (overnight, 2026-11-07): `BAGLA_FINANCE_BETA_RELEASE_CANDIDATE_RC4.zip`
+Source: branch `phase-1-security-money`; see `BUILD_INFO.txt` for the exact commit.
+
+**Release labels:**
+- **BUILD PASS** ✅
+- **LOCAL STARTUP PASS** ✅ local toolchain (API with uvicorn, web with a Vite production build). The Docker stack wasn't rebuilt (C: low on space; see below).
+- **FUNCTIONAL SMOKE TEST PASS** ✅
+- **CLEAN PACKAGE EXTRACTION PASS** ✅ local toolchain, fresh database.
+- **PRIVATE BETA READY** ❌ (hosting, managed DB and restore drill, monitoring, legal review, approvals).
+- **PUBLIC PRODUCTION READY** ❌
+
+### Working tree
+| Suite | Result |
+|---|---|
+| Backend, SQLite (`pytest -q`) | **121 passed**, 1 skipped (PostgreSQL-only lock test) |
+| Backend, PostgreSQL 16 (throwaway, tmpfs) | **122 passed** |
+| Migrations up → down (base) → up | head `0010_group_types_split_methods`; `alembic check`: no differences |
+| `ruff check app migrations tests` | pass |
+| Frontend unit (Vitest) | **137 passed** (16 files) |
+| `tsc --noEmit` / `vite build` / `npm audit --omit=dev` | 0 errors / pass / 0 vulnerabilities |
+| Browser E2E, 5 projects (Chromium desktop and mobile, Firefox, WebKit, iPhone 13) against a production build | **112 passed** |
+| GitHub CI (frontend, backend on SQLite + PostgreSQL + migrations, E2E on PostgreSQL) | **success** on `206d0a4` |
+
+### Clean extraction (the release archive itself)
+1. Archive extracted to an empty folder on D:: 277 files, no `node_modules`, `.venv`, `.env.release` or `.git`.
+2. `npm ci` and a new Python venv with `requirements-dev.txt`, installed **in the extracted folder on D:**, with caches and temp on D:. C: free space didn't change.
+3. In the extracted package:
+   - `tsc` 0 errors; `vite build` pass.
+   - 137 unit tests passed.
+   - 121 backend tests passed, 1 skipped.
+4. A new throwaway PostgreSQL 16 (tmpfs, container `bagla_overnight_pg_2`): migrated to `0010`, 0 users at start.
+5. Browser journeys from the extracted package against that DB, Chromium desktop and mobile: **24 passed**:
+   - sign-up, sign-in and export
+   - entries
+   - groups, flexible splits and templates
+   - analytics reports and CSV
+   - navigation and cancel
+   - bill scanning
+   - recurring bills
+   - phone layout
+6. API restart: an entry (₹123.45) and the balance were identical after stopping and starting the extracted API; sign-in still worked.
+7. The throwaway DB was stopped and removed. The release stack and legacy databases weren't touched (checksums verified before and after).
+
+**Not tested:** `start.ps1` (Docker Compose) from the extracted RC4. Rebuilding the images would grow Docker's disk on C:, which has about 2 GB free. The compose files are unchanged since rc1, where the Docker path, the stop/start persistence on a Docker volume and `backup.ps1` were verified. To run it: free C: space first (`docs/DOCKER_DISK_RECLAIM_FOR_FOUNDER.md`).
+
+### Defects found and fixed overnight
+1. Analytics period filter counted the 1st of a month in the previous month west of UTC.
+2. Simultaneous retries with the same Idempotency-Key returned HTTP 500 to all but one request. No duplicate was ever saved.
+3. Two simultaneous refunds could exceed the original amount where row locks are unavailable (SQLite). PostgreSQL was already safe.
+
+### Added overnight
+- Analytics spending reports with CSV export.
+- Group expense templates and the monthly summary.
+- Tests:
+  - the founder's split examples
+  - groups of 2, 4, 6, 10 and 50 people
+  - simultaneous paybacks
+  - the bank Balance column ignored
+  - cancelled imports
+  - expired family invites
+  - concurrent retries and refunds
+
+---
+
 
 Windows 11, Docker Desktop (WSL 2), Node 22 / Python 3.13 / PostgreSQL 16. Every number below comes from a run on 2026-11-06. Source: branch `phase-1-security-money`; see `BUILD_INFO.txt` for the exact commit.
 

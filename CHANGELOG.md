@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta.rc4 (overnight), 2026-11-07
+- Analytics: spending reports (category breakdown, daily, 6-month income vs spending, budget vs actual) with CSV export; local-date fix.
+- Groups: editable expense templates; monthly summary; tests for worked examples, 2–50 people and simultaneous paybacks.
+- Ledger: simultaneous retries return the saved entry (was HTTP 500); the refund cap holds under concurrency.
+- Imports: the bank Balance column is never authoritative; cancelled imports save nothing (tests).
+- Family: expired invites refused (test).
+- Docs: docs/FULL_PRODUCT_CAPABILITY_AUDIT, AI_ASSISTANT_IMPLEMENTATION, RECEIPT_SCANNING_IMPLEMENTATION, LEDGER_INTEGRITY_REPORT, SECURITY_REVIEW_OVERNIGHT, DOCKER_DISK_RECLAIM_FOR_FOUNDER; roadmap detail.
+- E2E runs against a production build (vite preview); CI annotates failures.
+
 ## Customer-experience sprint, 2026-11-06 (after 1.0.0-beta.rc1)
 - Leaving any task: one dialog component for all overlays (X, Esc, backdrop, browser Back; Keep editing / Discard; focus trap and return); browser Back/Forward between screens.
 - Groups: custom setup (types, custom category, icon, 2–30 people, edit later), equal / exact / percentage / shares splits with an exact-paise preview matching the server, part-payments, rename and identity badges, no invented members. Migration 0010.
