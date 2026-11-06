@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   __setGeminiClientForTests,
+  aiStatus,
   fallbackParseExpense,
   handleChat,
   handleParseExpense,
@@ -91,6 +92,44 @@ describe("webhook verification", () => {
   });
 });
 
+describe("AI status and chat provider paths (mocked provider; no live Gemini call)", () => {
+  const fake = (impl: () => Promise<any>) => ({ models: { generateContent: impl } }) as any;
+
+  it("reports not configured without a key, and never exposes a key", () => {
+    expect(aiStatus()).toEqual({ configured: false, provider: null, model: null });
+    __setGeminiClientForTests(fake(async () => ({ text: "{}" })));
+    const s = aiStatus();
+    expect(s.configured).toBe(true);
+    expect(JSON.stringify(s)).not.toMatch(/key/i);
+  });
+
+  it("without a key, chat says so plainly and returns no actions", async () => {
+    const r = await handleChat({ message: "How much did I spend?", financialData: { monthlyStats: { totalSpent: 1200 } } });
+    expect(r.body).toMatchObject({ aiAvailable: false, reason: "not_configured", suggestedActions: [] });
+    expect((r.body as any).reply).toMatch(/isn't set up/);
+  });
+
+  it("with a provider, only navigation suggestions survive (no record-writing actions)", async () => {
+    __setGeminiClientForTests(fake(async () => ({ text: JSON.stringify({
+      reply: "Food is your top category.",
+      suggestedActions: [
+        { id: "1", label: "Add ₹500", actionType: "add_expense", payload: { amount: 500 } },
+        { id: "2", label: "Budget", actionType: "create_budget", payload: { amount: 9000 } },
+        { id: "3", label: "Pay Ravi", actionType: "pay", payload: { amount: 10 } },
+        { id: "4", label: "See food", actionType: "filter_category", payload: { category: "Food" } },
+      ] }) })));
+    const r = await handleChat({ message: "top category?" });
+    expect(r.body).toMatchObject({ aiAvailable: true, reply: "Food is your top category." });
+    expect((r.body as any).suggestedActions.map((a: any) => a.actionType)).toEqual(["filter_category"]);
+  });
+
+  it("a provider error or timeout falls back honestly", async () => {
+    __setGeminiClientForTests(fake(async () => { throw new Error("quota"); }));
+    const r = await handleChat({ message: "hi" });
+    expect(r.body).toMatchObject({ aiAvailable: false, reason: "provider_error" });
+  });
+});
+
 describe("AI input validation and fallbacks", () => {
   it("rejects missing / oversized text", async () => {
     expect((await handleParseExpense({})).status).toBe(400);
@@ -150,10 +189,12 @@ describe("AI input validation and fallbacks", () => {
       reply: "ok",
       suggestedActions: [
         { id: "1", label: "Pay", actionType: "transfer_money", payload: { amount: 1e9 } },
-        { id: "2", label: "Budget", actionType: "create_budget", payload: { amount: "5000.999", category: "Food" } },
+        { id: "2", label: "Budget", actionType: "open_budgets", payload: { amount: "5000.999", category: "Food" } },
+        { id: "3", label: "Create", actionType: "create_budget", payload: { amount: 5000 } }, // writes are never allowed
       ],
     });
     expect(out.suggestedActions).toHaveLength(1);
+    expect(out.suggestedActions[0].actionType).toBe("open_budgets");
     expect(out.suggestedActions[0].payload.amount).toBe(5001);
   });
 });

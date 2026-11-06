@@ -7,6 +7,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import {
+  aiStatus,
   handleAnomalies,
   handleChat,
   handleDailySummary,
@@ -76,6 +77,7 @@ function jsonRoute(limit: LimitName, handler: (body: any) => Promise<HandlerResu
   };
 }
 
+app.get("/api/ai/status", (_req, res) => { res.set(API_HEADERS).json(aiStatus()); });
 app.post("/api/ai/parse-expense", jsonRoute("parse-expense", handleParseExpense));
 app.post("/api/ai/scan-receipt", jsonRoute("scan-receipt", handleScanReceipt));
 app.post("/api/ai/chat", jsonRoute("chat", handleChat));

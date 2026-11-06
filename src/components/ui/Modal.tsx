@@ -107,22 +107,32 @@ export function Modal({ onClose, dirty = false, onSave, labelledBy, label, class
     };
   }, [id]);
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (!isTop(id)) return;
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      if (confirming) setConfirming(false);
-      else requestClose();
-      return;
-    }
-    if (e.key === "Tab" && ref.current) {
-      const items = (Array.prototype.slice.call(ref.current.querySelectorAll(FOCUSABLE)) as HTMLElement[]).filter(el => el.offsetParent !== null);
-      if (items.length === 0) return;
-      const firstEl = items[0], lastEl = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === firstEl) { e.preventDefault(); lastEl.focus(); }
-      else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); firstEl.focus(); }
-    }
-  };
+  // Listen on the document, not the dialog: if focus ends up on <body> (e.g. the focused button became
+  // disabled), Escape must still close the top dialog and Tab must still bring focus back inside it.
+  const confirmingRef = useRef(confirming);
+  confirmingRef.current = confirming;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isTop(id) || !ref.current) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (confirmingRef.current) setConfirming(false);
+        else requestClose();
+        return;
+      }
+      if (e.key === "Tab") {
+        const items = (Array.prototype.slice.call(ref.current.querySelectorAll(FOCUSABLE)) as HTMLElement[]).filter(el => el.offsetParent !== null);
+        if (items.length === 0) return;
+        const firstEl = items[0], lastEl = items[items.length - 1];
+        const inside = ref.current.contains(document.activeElement);
+        if (!inside) { e.preventDefault(); (e.shiftKey ? lastEl : firstEl).focus(); }
+        else if (e.shiftKey && document.activeElement === firstEl) { e.preventDefault(); lastEl.focus(); }
+        else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); firstEl.focus(); }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [id, requestClose]);
 
   const save = async () => {
     if (!onSave) return;
@@ -139,7 +149,6 @@ export function Modal({ onClose, dirty = false, onSave, labelledBy, label, class
       aria-labelledby={labelledBy}
       aria-label={labelledBy ? undefined : label}
       tabIndex={-1}
-      onKeyDown={onKeyDown}
       onMouseDown={e => { if (closeOnBackdrop && e.target === e.currentTarget) requestClose(); }}
       className={className || "fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn"}
     >

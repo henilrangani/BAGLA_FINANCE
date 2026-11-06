@@ -103,7 +103,8 @@ interface FinanceContextType {
   // AI Operations
   parseNaturalLanguageExpense: (text: string) => Promise<any>;
   scanReceiptImage: (base64: string, mimeType?: string) => Promise<ReceiptData>;
-  askBaglaAi: (message: string, history?: any[]) => Promise<any>;
+  /** Server AI chat. Throws on network/HTTP errors (the UI offers Retry); `signal` cancels. Advisory only. */
+  askBaglaAi: (message: string, history?: any[], signal?: AbortSignal) => Promise<any>;
   
   // Groups & Trips (Universal Split Hub)
   addGroup: (name: string, description: string, budget?: number, members?: { name: string; phone?: string; upiId?: string }[], coverEmoji?: string, kind?: GroupKind) => Group;
@@ -734,7 +735,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Bagla AI Chat
-  const askBaglaAi = async (message: string, history: any[] = []) => {
+  const askBaglaAi = async (message: string, history: any[] = [], signal?: AbortSignal) => {
     const currentMonth = localMonthPrefix();
     const monthTxs = transactions.filter(t => t.date?.startsWith(currentMonth));
     const totalSpent = netSpend(monthTxs);
@@ -788,20 +789,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     };
 
-    try {
-      if (settings.offlineMode) throw new Error("Offline mode: AI disabled");
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      return await res.json();
-    } catch (err) {
-      return {
-        reply: "I can help you review your recorded spending, check budget progress, or split expenses. What would you like to explore?",
-        suggestedActions: []
-      };
-    }
+    if (settings.offlineMode) throw new Error("Offline mode is on, so AI is switched off.");
+    const res = await fetch("/api/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal,
+    });
+    if (res.status === 429) throw new Error("Too many questions in a short time. Wait a minute and try again.");
+    if (!res.ok || !(res.headers.get("content-type") || "").includes("json")) throw new Error(`The AI service didn't answer (HTTP ${res.status}).`);
+    return await res.json();
   };
 
   // Quick 1-Tap Preset Expense Logger

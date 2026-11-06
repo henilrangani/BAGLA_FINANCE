@@ -52,6 +52,15 @@ export function getGeminiClient(): GoogleGenAI | null {
   return cachedClient;
 }
 
+/**
+ * What the app may say about AI. "configured" only means a key is set on the server; it does not mean the
+ * key or model has been verified to work. Never returns the key.
+ */
+export function aiStatus(): { configured: boolean; provider: string | null; model: string | null } {
+  const configured = !!getGeminiClient();
+  return { configured, provider: configured ? "Google Gemini" : null, model: configured ? geminiModel() : null };
+}
+
 /** For tests. */
 export function __setGeminiClientForTests(c: GoogleGenAI | null | undefined) {
   cachedClient = c;
@@ -329,7 +338,8 @@ Amounts are INR with at most 2 decimals. If the total is not legible, return tot
 // 3. Chat assistant
 // ---------------------------------------------------------------------------
 
-const ACTION_TYPES = ["create_budget", "add_expense", "view_group", "filter_category"];
+// Navigation only: each opens a screen or form where the person does the work. AI never writes records.
+const ACTION_TYPES = ["open_add_expense", "open_budgets", "view_group", "filter_category"];
 
 export function sanitizeChatReply(raw: any) {
   const actions = Array.isArray(raw?.suggestedActions) ? raw.suggestedActions : [];
@@ -382,10 +392,11 @@ export async function handleChat(body: any): Promise<HandlerResult> {
       status: 200,
       body: {
         reply: spent > 0
-          ? `Based on your recorded data, you have spent ₹${spent.toLocaleString("en-IN")} this month. The AI assistant is currently unavailable, but your budgets and reports work as usual.`
-          : "The AI assistant is currently unavailable. Your ledger, budgets and reports still work as usual.",
+          ? `AI isn't set up on this server. From your records: you have spent ₹${spent.toLocaleString("en-IN")} this month.`
+          : "AI isn't set up on this server. Your ledger, budgets and reports still work as usual.",
         suggestedActions: [],
         aiAvailable: false,
+        reason: "not_configured",
       },
     };
   }
@@ -395,7 +406,8 @@ Rules:
 1. Never give regulated investment, securities, tax-filing, credit or loan advice; suggest a qualified professional instead.
 2. Answer only from the user's financial data provided below. If it doesn't contain the answer, say: "I don't have enough recorded data to answer that."
 3. Never invent numbers. Format money as Indian Rupees with Indian digit grouping (e.g. ₹1,20,000).
-4. You cannot move money, make payments or change records. You may *suggest* an action (create_budget, add_expense, view_group, filter_category) with exact amounts the user stated; the user must confirm it.
+4. You cannot move money, make payments, connect to banks or change records. You may suggest opening a screen (open_add_expense, open_budgets, view_group, filter_category); the person then does it themselves.
+6. Say when the data is incomplete (you only see this month's totals, budgets, goals, bills, group totals and the 15 most recent entries).
 5. ${SAFETY_PREAMBLE}
 
 User's financial data:
@@ -450,6 +462,7 @@ ${quoted(financialData)}`;
         reply: "I couldn't reach the AI service just now. Your recorded data is safe — please try again in a moment.",
         suggestedActions: [],
         aiAvailable: false,
+        reason: "provider_error",
       },
     };
   }
