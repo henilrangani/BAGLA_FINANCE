@@ -111,7 +111,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
           ) : (
             <>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Live Online</span>
+              <span>Online</span>
             </>
           )}
         </button>

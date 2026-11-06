@@ -93,7 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, setSh
       {!isOnline && (
         <div className="bg-amber-500 text-slate-900 text-xs font-semibold px-4 py-1.5 flex items-center justify-center gap-2">
           <WifiOff className="w-3.5 h-3.5" />
-          <span>Offline Mode Active — Expenses will be stored locally and securely synced when online.</span>
+          <span>You're offline. Changes are kept on this device; in a signed-in account they sync when you're back online.</span>
         </div>
       )}
 
@@ -230,7 +230,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, setSh
             <button
               onClick={() => setIsReceiptModalOpen(true)}
               className="p-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-gray-200 dark:border-slate-700"
-              title="AI Receipt Scanner"
+              title="Scan a bill"
             >
               <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
             </button>

@@ -20,6 +20,14 @@ This section is authoritative. The dated sections below are history and some of 
 - The demo seed creates one synthetic account (`demo-…@example.com`). It is not removed automatically; delete it from the app if unwanted.
 - Docker image builds need about 3 GB on the Docker drive. Each rebuild leaves the old layers behind until you clean them up.
 
+**Customer-experience sprint (2026-11-06, later):**
+- AI and automatic bill reading are **built and tested only against mocked providers**. With no key set, the app shows the built-in-rules mode and manual bill entry. A live Gemini (or other) provider hasn't been verified.
+- Built-in answers understand a fixed set of English question types (see BETA_USER_GUIDE). Anything else gets "I can't answer that", by design.
+- Group splits: itemised (per-item) splitting isn't built. Editing an expense changes its description and amount only; to change who took part or the method, delete and re-add it.
+- Group types and categories are labels only; they don't change any calculation.
+- The header's persona and accessibility menus open on hover only (keyboard/touch gap).
+- Bill photos aren't stored with the entry.
+
 **Verification gaps:** see `RELEASE_TEST_REPORT.md` → "Not tested".
 - Real Safari on macOS/iOS and real phones.
 - Screen readers.

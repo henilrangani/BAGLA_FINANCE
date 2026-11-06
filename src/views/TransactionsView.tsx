@@ -288,10 +288,10 @@ export const TransactionsView: React.FC = () => {
             >
               <option value="all">All Entry Sources</option>
               <option value="manual">Manual Entry</option>
-              <option value="voice">AI Voice Entry</option>
-              <option value="receipt">AI Receipt Scan</option>
-              <option value="notification">SMS / Notification</option>
-              <option value="connected">Connected Account</option>
+              <option value="voice">Voice entry</option>
+              <option value="receipt">Bill scan</option>
+              <option value="notification">SMS / notification (demo data)</option>
+              <option value="connected">Payment sync demo (simulated)</option>
               <option value="imported">Statement Import</option>
             </select>
           </div>

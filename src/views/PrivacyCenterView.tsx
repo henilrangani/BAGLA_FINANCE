@@ -365,7 +365,7 @@ export const PrivacyCenterView: React.FC = () => {
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-emerald-400" />
               <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                Live NPCI UPI URI Inspector
+                Example UPI payment link
               </span>
             </div>
             <button
@@ -382,7 +382,7 @@ export const PrivacyCenterView: React.FC = () => {
           </div>
 
           <p className="text-[11px] text-slate-400">
-            Notice that the URI strictly contains payee address (<code className="text-emerald-300">pa</code>) and amount (<code className="text-emerald-300">am</code>). It contains <strong className="text-white">zero password fields</strong>, guaranteeing total user immunity from credential leaks.
+            Notice that the URI strictly contains payee address (<code className="text-emerald-300">pa</code>) and amount (<code className="text-emerald-300">am</code>). It contains <strong className="text-white">no password, PIN or OTP</strong>; your UPI app asks for the PIN itself.
           </p>
         </div>
       </div>
@@ -394,7 +394,7 @@ export const PrivacyCenterView: React.FC = () => {
             Financial Data Connectors & Consent Control
           </h3>
           <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
-            Account Aggregator & Notification abstraction layer (Sahamati & RBI Framework)
+            Nothing is connected: Bagla doesn't read bank accounts, SMS or notifications. Statement import (CSV/XLSX) is the only way bank data gets in.
           </p>
         </div>
 
@@ -402,57 +402,29 @@ export const PrivacyCenterView: React.FC = () => {
           <div className="p-5 rounded-2xl bg-gray-50 dark:bg-slate-800/60 border border-gray-200/80 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
             <div>
               <span className="font-bold text-sm text-gray-900 dark:text-white block mb-1">
-                Account Aggregator Consent (Anumati / Sahamati AA Framework)
+                Bank account link (Account Aggregator)
               </span>
               <span className="text-gray-500 dark:text-slate-400 text-[11px] font-medium leading-relaxed block">
-                Not available yet. Bank data via an RBI-licensed Account Aggregator would need your explicit consent for each bank.
+                Not available. It would need a licensed Account Aggregator partner and your explicit consent for each bank; none is set up.
               </span>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span
-                className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
-                  connectorStatus.aaConsentGranted
-                    ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                    : "bg-gray-200 dark:bg-slate-700 text-gray-600 border-gray-300 dark:border-slate-600"
-                }`}
-              >
-                {connectorStatus.aaConsentGranted ? "Active Consent" : "Revoked"}
-              </span>
-              <button
-                onClick={() => toggleDataConsent("aaConsentGranted")}
-                className="px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 font-bold hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
-              >
-                {connectorStatus.aaConsentGranted ? "Revoke Consent" : "Grant Consent"}
-              </button>
-            </div>
+            <span className="shrink-0 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-600">
+              Not available
+            </span>
           </div>
 
           <div className="p-5 rounded-2xl bg-gray-50 dark:bg-slate-800/60 border border-gray-200/80 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
             <div>
               <span className="font-bold text-sm text-gray-900 dark:text-white block mb-1">
-                SMS Transaction Notification Parser
+                Reading bank SMS
               </span>
               <span className="text-gray-500 dark:text-slate-400 text-[11px] font-medium leading-relaxed block">
-                Listens exclusively to transactional debits from verified Indian banks (HDFC, SBI, ICICI, Axis). Ignores personal chats & OTPs.
+                Not available. A web app can't read your SMS, and Bagla doesn't try to.
               </span>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span
-                className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
-                  connectorStatus.smsNotificationListening
-                    ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                    : "bg-gray-200 dark:bg-slate-700 text-gray-600 border-gray-300 dark:border-slate-600"
-                }`}
-              >
-                {connectorStatus.smsNotificationListening ? "Active" : "Disabled"}
-              </span>
-              <button
-                onClick={() => toggleDataConsent("smsNotificationListening")}
-                className="px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 font-bold hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
-              >
-                {connectorStatus.smsNotificationListening ? "Revoke" : "Enable"}
-              </button>
-            </div>
+            <span className="shrink-0 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-600">
+              Not available
+            </span>
           </div>
         </div>
       </div>

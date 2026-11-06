@@ -1,5 +1,13 @@
 # Changelog
 
+## Customer-experience sprint, 2026-11-06 (after 1.0.0-beta.rc1)
+- Leaving any task: one dialog component for all overlays (X, Esc, backdrop, browser Back; Keep editing / Discard; focus trap and return); browser Back/Forward between screens.
+- Groups: custom setup (types, custom category, icon, 2–30 people, edit later), equal / exact / percentage / shares splits with an exact-paise preview matching the server, part-payments, rename and identity badges, no invented members. Migration 0010.
+- AI assistant: shows whether AI is set up; built-in answers from records when it isn't; Stop/Retry; navigation-only suggestions (AI can no longer create entries or budgets).
+- Bill scanning: photo, camera or manual entry → review → explicit save; duplicate guard; provider-independent reader; removed fake sample receipts.
+- Honesty: removed fake Account Aggregator and SMS toggles, "Premium User", "Live Online" and overclaiming marketing copy.
+- Docs: NAVIGATION_AUDIT.md, CAPABILITY_MATRIX.md.
+
 ## 1.0.0-beta.rc1 (local release candidate), 2026-11-06
 - Downloadable package: Docker Compose stack (separate DB volume, migrate job, API, scheduler, web, nginx gateway on one origin), Windows start/stop/status/seed/backup scripts, `.env.release.example`.
 - Fixed: page reloads from one IP could lock out sign-in (refresh now has its own rate-limit bucket).

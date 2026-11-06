@@ -27,7 +27,8 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onOpenLanding }) => {
-  const { settings, setIsAiChatOpen } = useFinance();
+  const { settings, setIsAiChatOpen, cloud } = useFinance();
+  const cloudSignedIn = cloud.enabled && cloud.state !== "signed_out";
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -108,7 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#0B2240] to-[#047857] p-0.5 shadow-sm">
             <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center font-bold text-xs text-[#0B2240] dark:text-emerald-400">
-              HB
+              {(settings.name || "You").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?"}
             </div>
           </div>
           <div className="text-left">
@@ -116,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onO
               {settings.name || "Your profile"}
             </div>
             <div className="text-[10px] text-[#047857] dark:text-emerald-400 font-semibold">
-              Premium User
+              {cloudSignedIn ? "Signed in · synced" : "On this device only"}
             </div>
           </div>
         </div>

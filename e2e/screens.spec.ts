@@ -90,3 +90,33 @@ test("payment sync demo is labelled as a simulation and claims no live connectio
   await nav(page, "Transactions");
   await expect(page.getByText(/Swiggy Restaurant \(simulated\)/).first()).toBeVisible();
 });
+
+test("new dialogs (group setup, group expense, bill scan, AI assistant) have no serious or critical WCAG A/AA violations", async ({ page }) => {
+  await openApp(page);
+  const scan = async (name: string) => {
+    const d = page.getByRole("dialog", { name });
+    await expect(d).toBeVisible();
+    const axe = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa"]).analyze();
+    const bad = axe.violations.filter(v => v.impact === "critical" || v.impact === "serious");
+    expect(bad.map(v => `${name}: ${v.id} (${v.nodes.length}) ${v.help}`)).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(d).toBeHidden();
+  };
+  await nav(page, "Groups");
+  await page.getByRole("button", { name: /Flatmates \/ Room Rent/ }).click();
+  await scan("Create a group");
+  await page.getByRole("button", { name: /Flatmates \/ Room Rent/ }).click();
+  const setup = page.getByRole("dialog", { name: "Create a group" });
+  await setup.getByLabel("Group name").fill("Axe Flat");
+  await setup.getByLabel("Person 2 name").fill("Ravi");
+  await setup.getByRole("button", { name: "Create group" }).click();
+  await expect(setup).toBeHidden();
+  await page.getByText("+ Add Expense").last().click();
+  await page.getByRole("dialog", { name: "Add Group Expense" }).getByRole("radio", { name: "Percentages" }).click();
+  await scan("Add Group Expense");
+  await nav(page, "Dashboard");
+  await page.getByRole("button", { name: /Scan Bill/ }).first().click();
+  await scan("Scan a bill");
+  await page.getByRole("button", { name: /AI Assistant/ }).first().click();
+  await scan("Bagla AI Assistant");
+});

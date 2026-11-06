@@ -26,12 +26,46 @@ Bagla Finance helps you keep an exact record of your money. It does **not** move
 3. Confirm. Uploading the same file again never adds duplicates.
 
 ## Groups (shared expenses)
-- **Groups** → create a group and add members by name.
-- **Add an expense** and choose who paid. It's split equally (or by exact amounts) to the paisa.
-- **Settle** (then *Mark as Settled & Confirmed*) records a payback someone made outside the app, by UPI, cash or bank transfer. **Undo** reverses a mistaken payback after confirmation.
-- **Invite** a member: share their invite code yourself. No email or SMS is sent.
-- **Track my share** (optional) adds only *your share* of group spending to your own accounts, so your personal totals stay accurate.
-- *Open GPay / PhonePe / Paytm* only opens your own UPI app with the details filled in, for you to check and confirm there. Bagla never initiates a payment.
+- **Create a group:** Groups → *Create Your First Group* (or *Start from a type*, which only pre-fills the form).
+  - Give it a name and pick a type: Rent, Flatmates, Trip, Food, Household, Event, Friends, Family, or Custom with your own category.
+  - Choose an icon and add an optional description and budget.
+  - Add people by name with **Add person**; you can have 2–30 people including you. Remove a row with its bin button.
+  - Names are only labels: nobody gets an account or a message.
+- **Edit group** (in the group header) changes the name, type, icon, description or budget later.
+- **Add an expense:** say what it was for, the total, who paid, and who took part (untick people who didn't).
+  - Choose how to split: **Equally**, **Exact amounts**, **Percentages** (must total 100%) or **Shares** (for example 2 for someone who had double; 0 leaves a person out).
+  - The list shows each person's share to the paisa before you save. **Save expense** only works once it adds up exactly.
+- **Members tab:** each person is shown as *Registered · joined*, *Invited · not joined yet* or *Added by name*.
+  - **Rename** changes only the name shown in this group; their account, past expenses and balance stay the same.
+  - **Remove** works once their balance is settled. Past expenses and paybacks stay in the history, and unpaid amounts are never written off.
+- **Settle:** records a payback that happened outside the app.
+  - Enter the amount that was actually paid; a smaller amount is saved as a part-payment, and the rest stays outstanding.
+  - Choose how it was paid (UPI, cash, bank transfer, other).
+  - **Undo** reverses a mistaken payback after confirmation.
+- **Invite** a member: share their one-time code yourself. No email or SMS is sent.
+- **Track my share** (optional) adds only *your share* of group spending to your own accounts.
+- *Open GPay / PhonePe / Paytm* only opens your own UPI app with the details filled in. Bagla never makes a payment.
+
+## Scanning a bill
+Dashboard → **Scan Bill**.
+1. Choose **Take photo**, **Choose photo** (JPEG/PNG/WebP up to 4 MB) or **Enter manually**.
+2. Automatic reading happens only if the server has a reading service set up; the screen says whether it is.
+   - Without one, the photo is shown for reference while you type the details.
+   - With one, check every field: readings can be wrong. **Stop** cancels a slow reading.
+3. Review the shop, total, date, category, payment method and (optionally) items. If the items don't add up to the total, you'll see a note; the total is what's saved.
+4. If it looks like an entry you already have, tick *It's a different bill* to save it anyway.
+5. **Save expense** saves it; nothing is saved before that. Closing asks before discarding.
+
+## AI assistant
+Sidebar → **AI Assistant**. The label at the top says which mode you're in.
+- **Built-in rules** (when the server has no AI set up, or you're offline): answers come from your own entries on this device.
+  - What it covers: spending by category and period ("food last month", "last 30 days"), top categories, budget status, spending patterns, ways to spend less, income vs spending, and simple explanations of terms like EMI or SIP.
+  - Each answer says which period and how many entries it used.
+- **AI** (only when the server has a provider key): answers are AI-generated from a summary of this month's data and can be wrong. **Stop** cancels; **Try again** retries.
+- In both modes the assistant can't add, change or delete entries, settle groups or make payments. Suggestions only open a screen, where you decide.
+
+## Leaving any screen
+Every dialog has an **X**, closes with **Esc**, and the phone or browser **Back** button closes it too. If you typed something, you're asked **Keep editing** or **Discard**; closing never saves. Back also returns to the previous screen.
 
 ## Family space
 **Family** → start a family space and invite members with a code.

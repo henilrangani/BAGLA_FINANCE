@@ -31,7 +31,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
             {/* Tag Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider shadow-xs">
               <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>Next-Gen Indian Fintech Platform</span>
+              <span>India-first money tracker</span>
             </div>
 
             {/* Main Headline */}
@@ -137,7 +137,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
               </div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Fast 10-Second Expense Entry</h3>
               <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed font-medium">
-                Type naturally like “₹120 auto to college” or speak directly. Our Gemini parser extracts amount, category, and payee instantly.
+                Type naturally like “₹120 auto to college” or speak it. You check the amount and category before anything is saved.
               </p>
             </div>
 
@@ -146,9 +146,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
               <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-100 dark:border-indigo-900/40">
                 <FileText className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">AI Receipt & Bill OCR</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Bill entry from a photo</h3>
               <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed font-medium">
-                Take a photo of any restaurant bill, grocery invoice, or fuel receipt. Bagla Finance extracts GST, line items, and itemized splits.
+                Attach a bill photo and enter or check the total, date and items. Automatic reading works only where the server has it set up.
               </p>
             </div>
 
@@ -159,7 +159,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
               </div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Smart Group & Trip Splitting</h3>
               <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed font-medium">
-                Equal, percentage, exact, or item-by-item splitting. Our graph algorithm optimizes debts into minimal direct payments.
+                Split equally, by exact amounts, percentages or shares, to the paisa. Bagla suggests the fewest paybacks to settle up.
               </p>
             </div>
 
@@ -192,7 +192,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
               </div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Privacy by Architecture</h3>
               <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed font-medium">
-                Consent-based FinancialDataConnector abstraction. Zero access to banking passwords, UPI PINs, or OTPs.
+                No bank connection and no access to banking passwords, UPI PINs or OTPs. You decide what gets recorded.
               </p>
             </div>
           </div>
