@@ -610,7 +610,7 @@ export const GROUP_TEMPLATES = [
 
 export const INITIAL_FAMILY_SPACE: FamilySpace = {
   id: "fam-rangani",
-  name: "Rangani Household",
+  name: "Demo Household",
   monthlyBudget: 45000,
   sharedCategories: ["cat-groceries", "cat-electricity", "cat-bills", "cat-rent", "cat-internet", "cat-healthcare"],
   members: [
