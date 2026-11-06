@@ -16,6 +16,7 @@ export function fromServerGroup(d: any): Group {
     upiId: m.upi_id || undefined,
     role: m.role,
     linked: !!m.linked,
+    invited: !!m.invited,
   });
   const members = d.members.filter((m: any) => m.status === "active").map(toMember);
   const formerMembers = d.members.filter((m: any) => m.status !== "active").map(toMember);
@@ -27,7 +28,8 @@ export function fromServerGroup(d: any): Group {
     currency: d.currency,
     categoryId: toCategoryId(e.category),
     paidByMemberId: e.paid_by_member_id,
-    splitType: "exact",
+    // Older expenses (before split methods were stored) show as exact amounts, which they are.
+    splitType: (["equal", "exact", "percentage", "shares"].includes(e.split_method) ? e.split_method : "exact"),
     participants: e.shares.map((s: any) => ({ memberId: s.member_id, amountOwed: fromPaise(s.share_paise) })),
     date: e.expense_date,
     time: "12:00",
@@ -47,6 +49,8 @@ export function fromServerGroup(d: any): Group {
     name: d.name,
     description: d.description,
     coverEmoji: d.cover_emoji,
+    groupType: d.group_type || "custom",
+    groupLabel: d.group_label || undefined,
     budget: d.budget_paise != null ? fromPaise(d.budget_paise) : undefined,
     currency: d.currency,
     createdBy: "",
@@ -91,9 +95,10 @@ export const linkRemoteLedger = (groupId: string, fundingAccountId: string) =>
   api<any>("POST", `/api/v1/groups/${groupId}/ledger`, { funding_account_id: fundingAccountId });
 
 export async function createRemoteGroup(name: string, description: string, emoji: string, budgetRupees: number | undefined,
-  members: { name: string; upiId?: string }[]): Promise<string> {
+  members: { name: string; upiId?: string }[], kind: { groupType?: string; groupLabel?: string } = {}): Promise<string> {
   const g = await api<any>("POST", "/api/v1/groups", {
     name: name.slice(0, 120), description: (description || "").slice(0, 500), cover_emoji: emoji || "👥",
+    group_type: kind.groupType || "custom", group_label: kind.groupType === "custom" ? kind.groupLabel || undefined : undefined,
     budget_paise: budgetRupees && budgetRupees > 0 ? toPaise(budgetRupees) : undefined,
     members: members.map(m => ({ display_name: m.name.slice(0, 120), upi_id: m.upiId || undefined })),
   });
@@ -110,11 +115,17 @@ export async function addRemoteExpense(groupId: string, e: Omit<GroupExpense, "i
   const amountPaise = toPaise(Math.abs(safeRupees(e.amount)));
   const shares = (e.participants || []).map(p => ({ member_id: p.memberId, share_paise: toPaise(safeRupees(p.amountOwed)) }));
   const exact = shares.length > 0 && shares.reduce((s, x) => s + x.share_paise, 0) === amountPaise;
+  // Percentage / shares: send the weights; the server allocates the paise with the same algorithm as the preview.
+  const weighted = (e.splitType === "percentage" || e.splitType === "shares") && e.splitWeights?.length;
+  const split = weighted
+    ? { split: e.splitType, weights: e.splitWeights!.map(w => ({ member_id: w.memberId, weight: w.weight })) }
+    : e.splitType === "equal" && shares.length
+      ? { split: "equal", participant_ids: shares.map(s => s.member_id) }
+      : exact ? { split: "exact", shares } : { split: "equal", participant_ids: shares.length ? shares.map(s => s.member_id) : undefined };
   await api("POST", `/api/v1/groups/${groupId}/expenses`, {
     description: e.description.slice(0, 300), amount_paise: amountPaise, paid_by_member_id: e.paidByMemberId,
     category: e.categoryId, expense_date: e.date, idempotency_key: idempotencyKey,
-    personal_account_id: personalAccountId,
-    ...(exact ? { split: "exact", shares } : { split: "equal", participant_ids: shares.length ? shares.map(s => s.member_id) : undefined }),
+    personal_account_id: personalAccountId, ...split,
   });
 }
 

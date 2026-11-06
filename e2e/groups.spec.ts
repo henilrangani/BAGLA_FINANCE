@@ -8,9 +8,11 @@ async function groupDetail(request: any, token: string) {
 
 async function addGroupExpense(page: Page, desc: string, amount: string) {
   await page.getByText("+ Add Expense").last().click();
-  await page.getByPlaceholder("e.g. Seafood Dinner, Fuel, Airbnb Villa Booking").fill(desc);
-  await page.getByPlaceholder("e.g. 2400").fill(amount);
-  await page.getByRole("button", { name: "Save Group Expense" }).click();
+  const d = page.getByRole("dialog", { name: "Add Group Expense" });
+  await d.getByLabel("What was it for?").fill(desc);
+  await d.getByLabel("Total amount (₹)").fill(amount);
+  await d.getByRole("button", { name: "Save expense" }).click();
+  await expect(d).toBeHidden();
 }
 
 test("group split, invitation to a second account, settlement and a safe void", async ({ page, browser, request }) => {
@@ -22,9 +24,12 @@ test("group split, invitation to a second account, settlement and a safe void", 
   // Create a group from the empty state with two named people.
   await nav(page, "Groups");
   await page.getByText("Create Your First Group").click();
-  await page.getByPlaceholder("e.g. Manali Snow Trip, Flat 402, Team Chai").fill("Goa Trip");
-  await page.getByPlaceholder("e.g. Ravi, Meera").fill("Ravi, Meera");
-  await page.getByRole("button", { name: "Create Universal Group" }).click();
+  const setup = page.getByRole("dialog", { name: "Create a group" });
+  await setup.getByLabel("Group name").fill("Goa Trip");
+  await setup.getByLabel("Person 2 name").fill("Ravi");
+  await setup.getByRole("button", { name: "Add person" }).click();
+  await setup.getByLabel("Person 3 name").fill("Meera");
+  await setup.getByRole("button", { name: "Create group" }).click();
   await expect(page.getByText("Goa Trip").first()).toBeVisible();
   await expect.poll(async () => (await groupDetail(request, aTok))?.members.length).toBe(3);
   const created = await groupDetail(request, aTok);
@@ -49,7 +54,7 @@ test("group split, invitation to a second account, settlement and a safe void", 
   // Invite Ravi's seat; the code is shown once.
   await page.getByRole("button", { name: /Members & Balances/ }).click();
   const raviCard = page.getByTestId("member-card-Ravi");
-  await expect(raviCard.getByText("Not joined yet")).toBeVisible();
+  await expect(raviCard.getByText("Added by name")).toBeVisible();
   await raviCard.getByRole("button", { name: "Invite to join" }).click();
   const code = (await page.getByTestId("invite-code").innerText()).trim();
   expect(code.length).toBeGreaterThan(20);
@@ -104,8 +109,9 @@ test("group split, invitation to a second account, settlement and a safe void", 
   // Removing a member who is owed money is refused with a clear message.
   await page.getByRole("button", { name: /Members & Balances/ }).click();
   const card2 = page.getByTestId("member-card-Ravi");
-  await expect(card2.getByText("Joined", { exact: true })).toBeVisible();
+  await expect(card2.getByText("Registered · joined")).toBeVisible();
   await card2.getByRole("button", { name: "Remove" }).click();
-  await expect(card2.getByRole("alert")).toContainText("Settle this person's balance first");
+  await expect(card2.getByRole("alert")).toContainText("Ravi is still owed ₹33.33");
+  await expect(card2.getByRole("alert")).toContainText("never written off");
   await ctx.close();
 });

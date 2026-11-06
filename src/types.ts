@@ -118,9 +118,13 @@ export interface GroupMember {
   role?: "admin" | "member";
   /** Account groups only: the seat is linked to a Bagla account (the person has joined). */
   linked?: boolean;
+  /** Account groups only: an invite code is outstanding for this seat. */
+  invited?: boolean;
 }
 
-export type SplitType = "equal" | "percentage" | "exact" | "itemized";
+export type GroupType = "rent" | "flatmates" | "trip" | "food" | "household" | "event" | "friends" | "family" | "custom";
+
+export type SplitType = "equal" | "percentage" | "exact" | "itemized" | "shares";
 
 export interface SplitParticipant {
   memberId: string;
@@ -144,6 +148,8 @@ export interface GroupExpense {
   receiptData?: ReceiptData;
   notes?: string;
   createdAt: string;
+  /** Percentage (basis points) or shares weights behind the split; sent to the server, which re-allocates them. */
+  splitWeights?: { memberId: string; weight: number }[];
 }
 
 export interface Settlement {
@@ -164,6 +170,9 @@ export interface Group {
   name: string;
   description: string;
   coverEmoji: string;
+  groupType?: GroupType;
+  /** A custom category name when groupType is "custom". */
+  groupLabel?: string;
   budget?: number;
   currency: string;
   createdBy: string;

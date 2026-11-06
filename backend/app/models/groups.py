@@ -20,7 +20,7 @@ Recurring bills:
 import uuid
 from datetime import date
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, ForeignKey, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import JSON, BigInteger, Boolean, CheckConstraint, Date, ForeignKey, Integer, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin, UUIDMixin
@@ -37,6 +37,9 @@ class SplitGroup(Base, UUIDMixin, TimestampMixin):
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"),
                                                          nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    # rent | flatmates | trip | food | household | event | friends | family | custom (label in group_label)
+    group_type: Mapped[str] = mapped_column(String(20), default="custom", server_default="custom")
+    group_label: Mapped[str | None] = mapped_column(String(40), nullable=True)
     # Optimistic concurrency: every money-changing write bumps this (see routes/splits._bump).
     version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
@@ -80,6 +83,11 @@ class SplitExpense(Base, UUIDMixin, TimestampMixin):
     # The payer's own ledger entry mirroring this expense (created server-side, voided with it).
     personal_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
+    # How the shares were chosen: equal | exact | percentage | shares (NULL for expenses before 0010).
+    split_method: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # The inputs behind the shares ({member_id: weight}; basis points for percentage, paise for exact).
+    # An amount edit re-splits in these proportions.
+    split_weights: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class SplitLedgerLink(Base, UUIDMixin, TimestampMixin):

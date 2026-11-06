@@ -13,6 +13,7 @@ import {
   AnomalyAlert,
   FinancialHealthScore,
   GroupExpense,
+  GroupType,
   Settlement,
   ReceiptData,
   StatementImportPreviewItem,
@@ -44,7 +45,9 @@ import { hashPin, isValidPin, lockoutDelayMs, verifyPin } from "../utils/pin";
 import { activeProfile, profileKey } from "../api/profile";
 import { api, ApiError, readSession, setOfflineGuard } from "../api/client";
 import { enqueue, ensureAccounts, pendingCount, pullAll, runOutbox, unsyncedIds, type OutboxOp } from "../api/sync";
-import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGroup, editRemoteExpense, linkRemoteLedger, pullGroups, recordRemoteSettlement, undoRemoteSettlement, voidRemoteExpense } from "../api/groups";
+import { addRemoteExpense, addRemoteMember, archiveRemoteGroup, createRemoteGroup, editRemoteExpense, linkRemoteLedger, pullGroups, recordRemoteSettlement, undoRemoteSettlement, updateRemoteMember, voidRemoteExpense } from "../api/groups";
+
+export interface GroupKind { groupType?: GroupType; groupLabel?: string }
 import type { AccountRefs } from "../api/mappers";
 import { openModalCount } from "../components/ui/Modal";
 
@@ -103,8 +106,8 @@ interface FinanceContextType {
   askBaglaAi: (message: string, history?: any[]) => Promise<any>;
   
   // Groups & Trips (Universal Split Hub)
-  addGroup: (name: string, description: string, budget?: number, members?: { name: string; phone?: string; upiId?: string }[], coverEmoji?: string) => Group;
-  createGroup: (name: string, coverEmoji: string, membersList: string[], budget?: number, description?: string) => Group;
+  addGroup: (name: string, description: string, budget?: number, members?: { name: string; phone?: string; upiId?: string }[], coverEmoji?: string, kind?: GroupKind) => Group;
+  createGroup: (name: string, coverEmoji: string, membersList: string[], budget?: number, description?: string, kind?: GroupKind) => Group;
   createGroupFromPreset: (presetId: string, customName?: string) => Group;
   addGroupExpense: (groupId: string, expense: Omit<GroupExpense, "id" | "groupId" | "createdAt">) => void;
   deleteGroup: (groupId: string) => void;
@@ -112,6 +115,8 @@ interface FinanceContextType {
   settleGroupPayment: (groupId: string, fromMemberId: string, toMemberId: string, amount: number, method?: any) => void;
   markSettlementPaid: (groupId: string, settlementId: string, method?: any) => void;
   updateGroup: (group: Group) => void;
+  /** Change a member's display name only (never their account). Resolves when saved. */
+  renameGroupMember: (groupId: string, memberId: string, name: string) => Promise<void>;
   /** Add a person to a group (account mode: on the server). Resolves when saved. */
   addGroupMember: (groupId: string, name: string, upiId?: string) => Promise<void>;
   /** Account mode: reload groups from the server (after joining, removing, etc.). */
@@ -825,7 +830,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     description: string,
     budget?: number,
     newMembers: { name: string; phone?: string; upiId?: string }[] = [],
-    coverEmoji: string = "👥"
+    coverEmoji: string = "👥",
+    kind: GroupKind = {}
   ): Group => {
     const memberList = [
       // No default UPI ID: a hardcoded one would send settlement requests to the wrong person.
@@ -843,6 +849,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       name,
       description: description || "Group expense tracker",
       coverEmoji: coverEmoji || "👥",
+      groupType: kind.groupType || "custom",
+      groupLabel: kind.groupType === "custom" ? kind.groupLabel?.trim() || undefined : undefined,
       budget: budget && budget > 0 ? budget : undefined,
       currency: "INR",
       createdBy: "m-henil",
@@ -856,7 +864,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setGroups(prev => [newGroup, ...prev]);
     setSelectedGroupId(newGroup.id);
     setActiveGroup(newGroup);
-    groupOp(() => createRemoteGroup(name, newGroup.description, newGroup.coverEmoji, budget, newMembers),
+    groupOp(() => createRemoteGroup(name, newGroup.description, newGroup.coverEmoji, budget, newMembers, kind),
       (id: string) => setSelectedGroupId(id));
     return newGroup;
   };
@@ -866,7 +874,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     coverEmoji: string = "✨",
     membersList: string[] = [],
     budget?: number,
-    description: string = "Shared expenses & splits"
+    description: string = "Shared expenses & splits",
+    kind: GroupKind = {}
   ): Group => {
     const filteredMembers = membersList
       .map(m => m.trim())
@@ -875,17 +884,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // No invented UPI IDs: a guessed handle could route a real payment to a stranger.
     const memberObjs = filteredMembers.map(mName => ({ name: mName }));
 
-    return addGroup(name, description, budget, memberObjs, coverEmoji);
+    return addGroup(name, description, budget, memberObjs, coverEmoji, kind);
   };
 
   const createGroupFromPreset = (presetId: string, customName?: string): Group => {
     const tpl = GROUP_TEMPLATES.find(t => t.id === presetId) || GROUP_TEMPLATES[0];
     const name = customName || tpl.sampleName;
-    const memberObjs = tpl.suggestedMembers
-      .filter(m => !m.toLowerCase().includes("you"))
-      .map(mName => ({ name: mName }));
-
-    return addGroup(name, tpl.sampleDesc, tpl.defaultBudget, memberObjs, tpl.emoji);
+    // No invented people: members are added by the user (see the group setup form).
+    return addGroup(name, tpl.sampleDesc, tpl.defaultBudget, [], tpl.emoji);
   };
 
   const deleteGroup = (groupId: string) => {
@@ -978,11 +984,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     groupOp(() => recordRemoteSettlement(groupId, fromMemberId, toMemberId, amount, method, newKey("gs")));
     setGroups(prev => prev.map(g => {
       if (g.id === groupId) {
-        const existingSettlement = g.settlements.find(
-          s => s.fromMemberId === fromMemberId && s.toMemberId === toMemberId && s.status === "suggested"
-        );
         amount = normalizeRupees(Math.abs(safeRupees(amount)));
         if (amount <= 0) return g;
+        // Only a payment of the full suggested amount closes that suggestion; a partial payment is its own
+        // record, and the outstanding amount is recalculated from it.
+        const existingSettlement = g.settlements.find(
+          s => s.fromMemberId === fromMemberId && s.toMemberId === toMemberId && s.status === "suggested"
+            && toPaise(safeRupees(s.amount)) === toPaise(amount)
+        );
 
         let updatedSettlements: Settlement[];
         if (existingSettlement) {
@@ -1110,13 +1119,28 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateGroup = (updated: Group) => {
     groupOp(() => api("PATCH", `/api/v1/groups/${updated.id}`, {
-      name: updated.name, description: updated.description,
+      name: updated.name, description: updated.description, cover_emoji: updated.coverEmoji || undefined,
+      group_type: updated.groupType || undefined,
+      group_label: updated.groupType === "custom" ? updated.groupLabel || null : null,
       budget_paise: updated.budget && updated.budget > 0 ? toPaise(updated.budget) : undefined }));
     const withOptimized = {
       ...updated,
       settlements: recomputeSettlements(updated)
     };
     setGroups(prev => prev.map(g => (g.id === updated.id ? withOptimized : g)));
+  };
+
+  const renameGroupMember = async (groupId: string, memberId: string, name: string) => {
+    const clean = name.trim().slice(0, 120);
+    if (!clean) throw new Error("Enter a name.");
+    if (PROFILE.kind === "cloud") {
+      await updateRemoteMember(groupId, memberId, { display_name: clean });
+      await refreshGroups(groupId);
+      return;
+    }
+    setGroups(prev => prev.map(g => g.id === groupId
+      ? { ...g, members: g.members.map(m => (m.id === memberId ? { ...m, name: clean } : m)) }
+      : g));
   };
 
   const generateWhatsAppSummary = (groupId: string): string => {
@@ -1619,6 +1643,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         settleGroupPayment,
         markSettlementPaid,
         updateGroup,
+        renameGroupMember,
         addGroupMember,
         refreshGroups,
         linkGroupLedger,

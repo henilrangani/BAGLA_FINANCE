@@ -77,14 +77,58 @@ export const GroupMemberToolbar: React.FC<PanelProps> = ({ group, accountMode, a
 };
 
 /** Role, joined status and actions for one member card (account mode). */
-export const MemberCardActions: React.FC<PanelProps & { member: GroupMember; netRupees: number }> = (
-  { group, accountMode, member, netRupees, refresh }) => {
+export const MemberCardActions: React.FC<PanelProps & { member: GroupMember; netRupees: number;
+  rename?: (memberId: string, name: string) => Promise<void> }> = (
+  { group, accountMode, member, netRupees, refresh, rename }) => {
   const [invite, setInvite] = useState<{ token: string; expires_on: string } | null>(null);
-  const [busy, setBusy] = useState<"" | "invite" | "remove">("");
+  const [busy, setBusy] = useState<"" | "invite" | "remove" | "rename">("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  if (!accountMode) return null;
-  const isAdmin = group.myRole === "admin";
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const isAdmin = !accountMode || group.myRole === "admin";
+  const canRename = !!rename && (isAdmin || member.isCurrentUser);
+
+  const saveName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const next = (renaming || "").trim();
+    if (!next) { setError("Enter a name."); return; }
+    if (next === member.name) { setRenaming(null); return; }
+    setError(""); setBusy("rename");
+    try { await rename!(member.id, next); setRenaming(null); }
+    catch (err) { setError((err as Error).message); }
+    finally { setBusy(""); }
+  };
+
+  // Who this seat is: a registered account that joined, an outstanding invite, or just a name typed in.
+  const identity = member.isCurrentUser ? null : member.linked
+    ? <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">Registered · joined</span>
+    : member.invited
+      ? <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">Invited · not joined yet</span>
+      : <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-200">Added by name</span>;
+
+  const renameUi = canRename && (renaming === null ? (
+    <button onClick={() => { setRenaming(member.name); setError(""); }}
+      className="text-[11px] font-bold text-gray-700 dark:text-slate-200 hover:underline cursor-pointer">Rename</button>
+  ) : (
+    <form onSubmit={saveName} className="flex items-center gap-1.5 w-full">
+      <input autoFocus aria-label={`New name for ${member.name}`} value={renaming} maxLength={120}
+        onChange={e => setRenaming(e.target.value)}
+        onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setRenaming(null); } }}
+        className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 text-xs text-gray-900 dark:text-white" />
+      <button type="submit" disabled={busy === "rename"} className="text-[11px] font-bold text-[#047857] cursor-pointer">Save</button>
+      <button type="button" onClick={() => setRenaming(null)} className="text-[11px] font-bold text-gray-600 dark:text-slate-300 cursor-pointer">Cancel</button>
+    </form>
+  ));
+
+  if (!accountMode) {
+    return (
+      <div className="space-y-2 pt-1">
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">{identity}</div>
+        <div className="flex flex-wrap gap-2">{renameUi}</div>
+        {error && <p role="alert" className="text-[11px] font-semibold text-rose-600">{error}</p>}
+      </div>
+    );
+  }
 
   const makeInvite = async () => {
     setError(""); setBusy("invite");
@@ -95,12 +139,15 @@ export const MemberCardActions: React.FC<PanelProps & { member: GroupMember; net
   const remove = async () => {
     setError("");
     if (netRupees !== 0) {
-      setError("Settle this person's balance first; people with money owed can't be removed.");
+      const amt = `₹${Math.abs(netRupees).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      setError(netRupees < 0
+        ? `${member.isCurrentUser ? "You still owe" : `${member.name} still owes`} ${amt}. Record that payback first; unpaid amounts are never written off.`
+        : `${member.isCurrentUser ? "You are" : `${member.name} is`} still owed ${amt}. Settle up first; unpaid amounts are never written off.`);
       return;
     }
     const msg = member.isCurrentUser
-      ? `Leave "${group.name}"? You'll lose access to it. Past expenses stay in the group's history.`
-      : `Remove ${member.name} from "${group.name}"? ${member.linked ? "They'll lose access to the group. " : ""}Past expenses stay in the history.`;
+      ? `Leave "${group.name}"? You'll lose access to it. Your past expenses and paybacks stay in the group's history.`
+      : `Remove ${member.name} from "${group.name}"?\n\n${member.linked ? "They'll lose access to the group. " : ""}Their past expenses and paybacks stay in the history, and they won't be included in new expenses.`;
     if (!window.confirm(msg)) return;
     setBusy("remove");
     try {
@@ -122,11 +169,10 @@ export const MemberCardActions: React.FC<PanelProps & { member: GroupMember; net
     <div className="space-y-2 pt-1">
       <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
         {member.role === "admin" && <span className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">Admin</span>}
-        {member.linked
-          ? <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">Joined</span>
-          : <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">Not joined yet</span>}
+        {identity}
       </div>
       <div className="flex flex-wrap gap-2">
+        {renameUi}
         {isAdmin && !member.linked && (
           <button onClick={makeInvite} disabled={busy !== ""}
             className="text-[11px] font-bold text-[#047857] hover:underline flex items-center gap-1 disabled:opacity-60 cursor-pointer">

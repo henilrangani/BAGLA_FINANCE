@@ -32,6 +32,10 @@ import { localDateString } from "../utils/dates";
 import { formatINR, normalizeRupees, parseRupeeInput, splitRupeesEqually, subtractRupees, sumRupees } from "../utils/money";
 import { describeVoid, previewRemoteVoid, type VoidPreview } from "../api/groups";
 import { GroupMemberToolbar, JoinGroupDialog, MemberCardActions } from "../components/GroupMembersPanel";
+import { GroupSetupDialog, groupTypeLabel, type GroupSetupValues } from "../components/groups/GroupSetupDialog";
+import { GroupExpenseDialog } from "../components/groups/GroupExpenseDialog";
+import { parsePaiseInput } from "../utils/split";
+import type { GroupType, PaymentMethod } from "../types";
 import { CloseButton, Modal } from "../components/ui/Modal";
 
 export const GroupsView: React.FC = () => {
@@ -44,7 +48,9 @@ export const GroupsView: React.FC = () => {
     settleGroupPayment,
     markSettlementPaid,
     createGroup,
-    createGroupFromPreset,
+    updateGroup,
+    renameGroupMember,
+    categories,
     deleteGroup,
     generateWhatsAppSummary,
     settings,
@@ -68,6 +74,12 @@ export const GroupsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"overview" | "expenses" | "members">("overview");
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
+  const [setupInitial, setSetupInitial] = useState<Partial<GroupSetupValues>>({});
+  const [isEditGroupOpen, setIsEditGroupOpen] = useState(false);
+  const [settleAmount, setSettleAmount] = useState("");
+  const [settleMethod, setSettleMethod] = useState<PaymentMethod>("upi");
+  const [settleError, setSettleError] = useState("");
+  const openNewGroup = (initial: Partial<GroupSetupValues> = {}) => { setSetupInitial(initial); setIsNewGroupOpen(true); };
   const [copiedSummary, setCopiedSummary] = useState(false);
 
   // Settlement QR Modal State
@@ -170,6 +182,14 @@ export const GroupsView: React.FC = () => {
     };
   }, [activeGroup, currentUserMember]);
 
+  React.useEffect(() => {
+    if (settleModalData) {
+      setSettleAmount(settleModalData.amount.toFixed(2));
+      setSettleMethod("upi");
+      setSettleError("");
+    }
+  }, [settleModalData]);
+
   // Handle WhatsApp Copy
   const handleCopyWhatsApp = () => {
     if (!activeGroup) return;
@@ -180,19 +200,21 @@ export const GroupsView: React.FC = () => {
   };
 
   // Handle Settlement Payment Confirmation
+  const fullSettlePaise = settleModalData ? Math.round(settleModalData.amount * 100) : 0;
+  const settlePaise = parsePaiseInput(settleAmount);
   const handleConfirmSettlement = () => {
     if (!activeGroup || !settleModalData) return;
-
-    if (settleModalData.settlementId) {
-      markSettlementPaid(activeGroup.id, settleModalData.settlementId, "upi");
+    if (settlePaise === null || settlePaise <= 0) { setSettleError("Enter the amount that was paid, like 500 or 499.50."); return; }
+    if (settlePaise > fullSettlePaise) {
+      setSettleError(`That's more than the ₹${(fullSettlePaise / 100).toFixed(2)} outstanding. Record only what was actually paid.`);
+      return;
+    }
+    setSettleError("");
+    if (settleModalData.settlementId && settlePaise === fullSettlePaise) {
+      markSettlementPaid(activeGroup.id, settleModalData.settlementId, settleMethod);
     } else {
-      settleGroupPayment(
-        activeGroup.id,
-        settleModalData.fromId,
-        settleModalData.toId,
-        settleModalData.amount,
-        "upi"
-      );
+      // A partial payback is recorded as its own payment; what's left stays outstanding.
+      settleGroupPayment(activeGroup.id, settleModalData.fromId, settleModalData.toId, settlePaise / 100, settleMethod);
     }
 
     try {
@@ -204,44 +226,6 @@ export const GroupsView: React.FC = () => {
     } catch {}
 
     setSettleModalData(null);
-  };
-
-  // Handle Add Expense Form Submit
-  const handleAddExpenseSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeGroup) return;
-
-    const parsed = parseRupeeInput(expenseAmount);
-    if (parsed.ok === false) return;
-    const numAmount = parsed.rupees;
-
-    const payer = paidByMemberId || currentUserMember?.id || activeGroup.members[0].id;
-    const participantsList = selectedParticipants.length > 0
-      ? selectedParticipants
-      : activeGroup.members.map(m => m.id);
-
-    // Exact split: e.g. ₹100 / 3 = 33.34 + 33.33 + 33.33 (previously 33 each, losing ₹1).
-    const shares = splitRupeesEqually(numAmount, participantsList.length);
-    const participants = participantsList.map((mId, i) => ({
-      memberId: mId,
-      amountOwed: shares[i]
-    }));
-
-    addGroupExpense(activeGroup.id, {
-      description: expenseDesc.trim() || "Group Expense",
-      amount: numAmount,
-      currency: activeGroup.currency || "INR",
-      categoryId: expenseCategory,
-      paidByMemberId: payer,
-      splitType,
-      participants,
-      date: localDateString(),
-      time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
-    });
-
-    setExpenseDesc("");
-    setExpenseAmount("");
-    setIsAddExpenseOpen(false);
   };
 
   // Delete (void) a group expense, explaining the financial effect first.
@@ -274,37 +258,20 @@ export const GroupsView: React.FC = () => {
     if (window.confirm(lines.join("\n"))) deleteGroupExpense(activeGroup.id, exp.id);
   };
 
-  // Handle Create Group Form Submit
-  const handleCreateGroupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newGroupName.trim()) return;
-
-    const membersList = newGroupMembers
-      .split(",")
-      .map(m => m.trim())
-      .filter(m => m.length > 0);
-
-    const budgetNum = parseFloat(newGroupBudget) > 0 ? parseFloat(newGroupBudget) : undefined;
-
-    const created = createGroup(
-      newGroupName.trim(),
-      newGroupEmoji || "👥",
-      membersList,
-      budgetNum,
-      newGroupDesc.trim() || "Group expense & trip tracker"
-    );
-
+  const handleCreateGroup = (v: GroupSetupValues) => {
+    const created = createGroup(v.name, v.emoji, v.memberNames, v.budgetRupees, v.description || "Shared expenses",
+      { groupType: v.groupType, groupLabel: v.groupLabel });
     setSelectedGroupId(created.id);
-    setNewGroupName("");
-    setNewGroupDesc("");
     setIsNewGroupOpen(false);
   };
 
-  // Handle 1-Click Preset Template Creation
+  // Starting from a type only pre-fills the form; people are always added by the user.
+  const PRESET_TYPES: Record<string, GroupType> = {
+    "tpl-trip": "trip", "tpl-flat": "flatmates", "tpl-office": "food", "tpl-trek": "trip", "tpl-party": "event", "tpl-custom": "custom",
+  };
   const handlePresetSelect = (presetId: string) => {
-    const created = createGroupFromPreset(presetId);
-    setSelectedGroupId(created.id);
-    setIsNewGroupOpen(false);
+    const tpl = GROUP_TEMPLATES.find(t => t.id === presetId);
+    openNewGroup({ groupType: PRESET_TYPES[presetId] || "custom", emoji: tpl?.emoji, description: tpl?.sampleDesc });
   };
 
   // Active Settlements (Pending only)
@@ -321,105 +288,9 @@ export const GroupsView: React.FC = () => {
 
   // Rendered from both the empty state and the main screen, so a first group can be created.
   const newGroupModal = isNewGroupOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-gray-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-gray-900 dark:text-white">
-                Create New Universal Group
-              </h3>
-              <button
-                onClick={() => setIsNewGroupOpen(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateGroupSubmit} className="space-y-3">
-              <div className="grid grid-cols-4 gap-3">
-                <div className="col-span-1">
-                  <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                    Emoji
-                  </label>
-                  <input
-                    type="text"
-                    value={newGroupEmoji}
-                    onChange={e => setNewGroupEmoji(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-center text-lg font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
-                    maxLength={2}
-                  />
-                </div>
-
-                <div className="col-span-3">
-                  <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                    Group Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Manali Snow Trip, Flat 402, Team Chai"
-                    value={newGroupName}
-                    onChange={e => setNewGroupName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                  Description / Dates
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 10 Sep – 15 Sep or Monthly shared flat bills"
-                  value={newGroupDesc}
-                  onChange={e => setNewGroupDesc(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                  Friend Members (Comma-separated)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Ravi, Meera"
-                  value={newGroupMembers}
-                  onChange={e => setNewGroupMembers(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
-                  required
-                />
-                <span className="text-[10px] text-gray-400 mt-1 block">
-                  You ({settings.name}) will be added automatically as the admin.
-                </span>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                  Target Budget (Optional ₹)
-                </label>
-                <input
-                  type="number"
-                  placeholder="30000"
-                  value={newGroupBudget}
-                  onChange={e => setNewGroupBudget(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
-                >
-                  Create Universal Group
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      );
+    <GroupSetupDialog mode="create" initial={setupInitial} myName={settings.name || "You"}
+      onClose={() => setIsNewGroupOpen(false)} onSubmit={handleCreateGroup} />
+  );
 
   if (!activeGroup) {
     return (
@@ -433,7 +304,7 @@ export const GroupsView: React.FC = () => {
           Create a group to split trip expenses, house rent, or dinners with friends without any math headache!
         </p>
         <button
-          onClick={() => setIsNewGroupOpen(true)}
+          onClick={() => openNewGroup()}
           className="px-5 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -494,7 +365,7 @@ export const GroupsView: React.FC = () => {
             )}
 
             <button
-              onClick={() => setIsNewGroupOpen(true)}
+              onClick={() => openNewGroup()}
               className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200/80 dark:border-slate-800 rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 transition-all"
             >
               <Plus className="w-3.5 h-3.5 text-[#047857]" />
@@ -552,6 +423,16 @@ export const GroupsView: React.FC = () => {
                   <p className="text-xs text-emerald-100/90 font-medium">
                     {activeGroup.description || "Shared group expenses"}
                   </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-white/15" data-testid="group-type">{groupTypeLabel(activeGroup.groupType, activeGroup.groupLabel)}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-white/15">{activeGroup.members.length} {activeGroup.members.length === 1 ? "person" : "people"}</span>
+                    {(!accountMode || activeGroup.myRole === "admin") && (
+                      <button onClick={() => setIsEditGroupOpen(true)}
+                        className="px-2.5 py-0.5 rounded-full bg-white text-[#0B2240] hover:bg-emerald-50 cursor-pointer">
+                        Edit group
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1037,7 +918,8 @@ export const GroupsView: React.FC = () => {
                     <div>Share: <strong>₹{consumed.toLocaleString("en-IN")}</strong></div>
                   </div>
                   <MemberCardActions group={activeGroup} accountMode={accountMode} member={member} netRupees={net}
-                    addMember={addGroupMember} refresh={refreshGroups} />
+                    addMember={addGroupMember} refresh={refreshGroups}
+                    rename={(memberId, name) => renameGroupMember(activeGroup.id, memberId, name)} />
                 </div>
               ))}
             </div>
@@ -1050,9 +932,9 @@ export const GroupsView: React.FC = () => {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-black text-gray-900 dark:text-white flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-amber-500" />
-            <span>Popular Group Presets (1-Click Create)</span>
+            <span>Start from a type</span>
           </h3>
-          <span className="text-[11px] text-gray-400">Pick any template to instantly start</span>
+          <span className="text-[11px] text-gray-400">Pre-fills the form; you choose the name and the people</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -1072,7 +954,7 @@ export const GroupsView: React.FC = () => {
                 {tpl.description}
               </p>
               <span className="text-[10px] font-bold text-[#047857] mt-2 block">
-                + Create
+                Set up →
               </span>
             </button>
           ))}
@@ -1103,6 +985,7 @@ export const GroupsView: React.FC = () => {
               <div className="text-3xl font-black text-[#047857] tracking-tight">
                 ₹{settleModalData.amount.toLocaleString("en-IN")}
               </div>
+              <span className="block text-[11px] text-gray-500">outstanding</span>
               {settleModalData.upiId && (
                 <div className="inline-block text-[11px] font-mono bg-white dark:bg-slate-700 px-3 py-1 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-200">
                   UPI ID: {settleModalData.upiId}
@@ -1110,11 +993,29 @@ export const GroupsView: React.FC = () => {
               )}
             </div>
 
-            {/* Direct UPI Intent Link */}
-            {settleModalData.upiId && buildUpiPayLink({ vpa: settleModalData.upiId, name: settleModalData.toName, amountRupees: settleModalData.amount }) && (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <label className="font-bold text-gray-700 dark:text-slate-300">Amount paid (₹)
+                <input data-autofocus inputMode="decimal" value={settleAmount} onChange={e => setSettleAmount(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-sm text-gray-900 dark:text-white" />
+              </label>
+              <label className="font-bold text-gray-700 dark:text-slate-300">How
+                <select value={settleMethod} onChange={e => setSettleMethod(e.target.value as PaymentMethod)}
+                  className="mt-1 w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-sm text-gray-900 dark:text-white">
+                  <option value="upi">UPI</option><option value="cash">Cash</option>
+                  <option value="bank_transfer">Bank transfer</option><option value="other">Other</option>
+                </select>
+              </label>
+            </div>
+            <p className="text-[11px] text-gray-500 dark:text-slate-400">
+              Record a payment that already happened outside Bagla. A smaller amount is saved as a part-payment and the rest stays outstanding.
+            </p>
+            {settleError && <p role="alert" className="text-xs font-semibold text-rose-600">{settleError}</p>}
+
+            {/* Direct UPI Intent Link (opens your own UPI app; nothing is paid from Bagla) */}
+            {settleModalData.upiId && settlePaise && settlePaise > 0 && settlePaise <= fullSettlePaise && buildUpiPayLink({ vpa: settleModalData.upiId, name: settleModalData.toName, amountRupees: settlePaise / 100 }) && (
               <a
                 // Validated + encoded: a crafted UPI ID can't inject a different amount.
-                href={buildUpiPayLink({ vpa: settleModalData.upiId, name: settleModalData.toName, amountRupees: settleModalData.amount }) || undefined}
+                href={buildUpiPayLink({ vpa: settleModalData.upiId, name: settleModalData.toName, amountRupees: settlePaise / 100 }) || undefined}
                 rel="noopener noreferrer"
                 className="w-full py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-100 transition-colors"
               >
@@ -1128,123 +1029,27 @@ export const GroupsView: React.FC = () => {
               className="w-full py-3 bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <Check className="w-4 h-4 stroke-[3]" />
-              <span>Mark as Settled & Confirmed</span>
+              <span>{settlePaise !== null && settlePaise > 0 && settlePaise < fullSettlePaise ? "Record part-payment" : "Mark as Settled & Confirmed"}</span>
             </button>
           </div>
         </>)}</Modal>
       )}
 
-      {/* Add Trip Expense Modal */}
-      {isAddExpenseOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-gray-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-black text-gray-900 dark:text-white">
-                  Add Group Expense
-                </h3>
-                <p className="text-xs text-gray-400">For {activeGroup.name}</p>
-              </div>
-              <button
-                onClick={() => setIsAddExpenseOpen(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddExpenseSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                  What was this expense for?
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Seafood Dinner, Fuel, Airbnb Villa Booking"
-                  value={expenseDesc}
-                  onChange={e => setExpenseDesc(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                    Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 2400"
-                    value={expenseAmount}
-                    onChange={e => setExpenseAmount(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                    Paid By
-                  </label>
-                  <select
-                    value={paidByMemberId}
-                    onChange={e => setPaidByMemberId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#047857]"
-                  >
-                    {activeGroup.members.map(m => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} {m.isCurrentUser ? "(You)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 dark:text-slate-300 block mb-1">
-                  Split With (Choose members involved)
-                </label>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {activeGroup.members.map(m => {
-                    const isSelected = selectedParticipants.includes(m.id);
-                    return (
-                      <button
-                        type="button"
-                        key={m.id}
-                        onClick={() => {
-                          if (isSelected) {
-                            if (selectedParticipants.length > 1) {
-                              setSelectedParticipants(prev => prev.filter(id => id !== m.id));
-                            }
-                          } else {
-                            setSelectedParticipants(prev => [...prev, m.id]);
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
-                            : "bg-gray-100 dark:bg-slate-800 text-gray-400 border border-transparent"
-                        }`}
-                      >
-                        {isSelected ? "✓ " : ""}{m.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
-                >
-                  Save Group Expense
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Add Group Expense (equal / exact / percentage / shares) */}
+      {isAddExpenseOpen && activeGroup && (
+        <GroupExpenseDialog group={activeGroup} categories={categories} onClose={() => setIsAddExpenseOpen(false)}
+          onSave={exp => addGroupExpense(activeGroup.id, exp)} />
+      )}
+      {isEditGroupOpen && activeGroup && (
+        <GroupSetupDialog mode="edit" myName={settings.name || "You"}
+          initial={{ name: activeGroup.name, groupType: activeGroup.groupType || "custom", groupLabel: activeGroup.groupLabel,
+            emoji: activeGroup.coverEmoji, description: activeGroup.description, budgetRupees: activeGroup.budget }}
+          onClose={() => setIsEditGroupOpen(false)}
+          onSubmit={v => {
+            updateGroup({ ...activeGroup, name: v.name, groupType: v.groupType, groupLabel: v.groupLabel, coverEmoji: v.emoji,
+              description: v.description, budget: v.budgetRupees });
+            setIsEditGroupOpen(false);
+          }} />
       )}
 
       {newGroupModal}
