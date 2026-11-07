@@ -41,7 +41,7 @@ export const LIMITS = {
 
 /** Model is configurable because model names change; verify availability before deploy. */
 export function geminiModel(): string {
-  return process.env.GEMINI_MODEL || "gemini-3.7-flash";
+  return process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 }
 
 let cachedClient: GoogleGenAI | null | undefined;

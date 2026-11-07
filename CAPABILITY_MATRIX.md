@@ -47,7 +47,7 @@ A component existing doesn't count; each row cites its evidence.
 | Shows whether an AI provider is configured (`/api/ai/status`) | Tested | `server.test.ts`, `ai-assistant.spec.ts` |
 | Built-in answers from records: category/date-range totals, top categories, budget differences, patterns, ways to spend less, income vs spending, money terms | Tested | `insights.test.ts`, `ai-assistant.spec.ts` (exact paise) |
 | AI answers with labels, Stop, timeout, Retry, errors, empty state | Tested with a **mocked** provider | `ai-assistant.spec.ts`, `server.test.ts` (mock client) |
-| Live Gemini answers | **Blocked** | no key; model name `gemini-3.7-flash` unverified; needs ★ key and budget |
+| Live Gemini answers | **Blocked** | no key; model name `gemini-3.1-flash-lite` (corrected 2026-11-07: the old default `gemini-3.1-flash-lite` does not exist on Google's pricing page); needs ★ key and budget |
 | AI can't write records or make payments | Tested | server filters to navigation-only actions; UI only navigates |
 | Bill scan: photo/camera/manual → review → explicit save, duplicate guard | Tested | `receipt.spec.ts` |
 | Automatic bill reading (OCR) | **Blocked** | the reader interface and UI are tested with a mocked server; real OCR needs a provider (★) |

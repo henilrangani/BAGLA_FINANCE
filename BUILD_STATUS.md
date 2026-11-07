@@ -58,7 +58,7 @@ Backend: 35 tests passed, ruff clean. Frontend: 71 tests, typecheck and build pa
 
 ### Not verified
 - **Vercel deployment** of the new `api/` wrappers, including raw-body reading for the webhook. Test on a preview deployment before production.
-- **Live Gemini calls.** No API key was used. The model name `gemini-3.7-flash` is unchanged from before and its availability has not been checked; it's configurable via `GEMINI_MODEL`.
+- **Live Gemini calls.** No API key was used. The model name `gemini-3.1-flash-lite` (corrected 2026-11-07: the old default `gemini-3.1-flash-lite` does not exist on Google's pricing page); it's configurable via `GEMINI_MODEL`.
 - Mobile layouts and screen readers after the text changes.
 
 ## Next phase (needs founder decisions)
