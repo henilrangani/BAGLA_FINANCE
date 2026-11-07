@@ -20,7 +20,7 @@
 ```bash
 # Backend (Python 3.13)
 cd backend && python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt   # (bin/ on macOS/Linux)
-export DATABASE_URL=postgresql+asyncpg://bagla:PASS@127.0.0.1:5432/bagla_finance JWT_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(48))")
+export DATABASE_URL=postgresql+asyncpg://bagla:PASS@127.0.0.1:55432/bagla_dev  # backend/docker-compose.yml; never 5432 (legacy DB) JWT_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(48))")
 .venv/Scripts/python -m alembic upgrade head      # read DEPLOYMENT_RUNBOOK.md before upgrading an existing DB
 .venv/Scripts/python -m uvicorn app.main:app --port 8000
 # Web app

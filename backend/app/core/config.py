@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     auth_rate_limit: int = 20
     # Session refreshes per IP per 15 minutes (separate bucket; see deps.refresh_limiter).
     refresh_rate_limit: int = 120
-    database_url: str = "postgresql+asyncpg://bagla:bagla@localhost:5432/bagla_finance"
+    # Required, no default. The old default pointed at the legacy local database (default password), so a run
+    # without DATABASE_URL (e.g. `alembic upgrade head`) could have connected to it and migrated it.
+    database_url: str
     # Connection pool per API process. Small managed plans allow few connections (e.g. ~22 usable on 1 GiB):
     # keep (pool_size + max_overflow) x processes below the plan limit.
     db_pool_size: int = 5

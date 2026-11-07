@@ -1,9 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { apiGet, apiLogin, nav, newUser, openApp, signUpViaUI } from "./helpers";
 
+/** The group is saved to the server in the background; until it exists this returns null (poll again). */
 async function detail(request: any, token: string) {
   const list = await apiGet(request, token, "/api/v1/groups");
-  return apiGet(request, token, `/api/v1/groups/${list[0].id}`);
+  return list.length ? apiGet(request, token, `/api/v1/groups/${list[0].id}`) : null;
 }
 
 async function createGroup(page: Page, name: string, type: string, people: string[]) {
@@ -62,7 +63,7 @@ test("flexible splits match the server to the paisa; partial payback; rename kee
   await signUpViaUI(page, u);
   const tok = await apiLogin(request, u);
   await createGroup(page, "Weekend trip", "Trip", ["Ravi", "Meera", "Kabir"]);
-  await expect.poll(async () => (await detail(request, tok)).members.length).toBe(4);
+  await expect.poll(async () => (await detail(request, tok))?.members.length).toBe(4);
   let g = await detail(request, tok);
   expect(g.group_type).toBe("trip");
   const id = Object.fromEntries(g.members.map((m: any) => [m.display_name, m.id]));
@@ -87,7 +88,7 @@ test("flexible splits match the server to the paisa; partial payback; rename kee
   await expect(d.getByText("Adds up exactly to ₹999.99")).toBeVisible();
   await d.getByRole("button", { name: "Save expense" }).click();
   await expect(d).toBeHidden();
-  await expect.poll(async () => (await detail(request, tok)).expenses.length).toBe(1);
+  await expect.poll(async () => (await detail(request, tok))?.expenses.length).toBe(1);
   g = await detail(request, tok);
   const villa = g.expenses[0];
   expect(villa.split_method).toBe("percentage");
@@ -108,7 +109,7 @@ test("flexible splits match the server to the paisa; partial payback; rename kee
   await expect(d.getByTestId("share-Asha Test")).toHaveText("₹50.01");
   await expect(d.getByTestId("share-Ravi")).toHaveText("₹25.00");
   await d.getByRole("button", { name: "Save expense" }).click();
-  await expect.poll(async () => (await detail(request, tok)).expenses.length).toBe(2);
+  await expect.poll(async () => (await detail(request, tok))?.expenses.length).toBe(2);
   g = await detail(request, tok);
   expect(g.members.reduce((s: number, m: any) => s + m.net_paise, 0)).toBe(0);
 
@@ -124,7 +125,7 @@ test("flexible splits match the server to the paisa; partial payback; rename kee
   await settle.getByLabel("Amount paid (₹)").fill("100");
   await settle.getByLabel("How").selectOption("cash");
   await settle.getByRole("button", { name: "Record part-payment" }).click();
-  await expect.poll(async () => (await detail(request, tok)).settlements.filter((s: any) => s.status === "recorded").length).toBe(1);
+  await expect.poll(async () => (await detail(request, tok))?.settlements.filter((s: any) => s.status === "recorded").length).toBe(1);
   g = await detail(request, tok);
   expect([g.settlements[0].amount_paise, g.settlements[0].method]).toEqual([10000, "cash"]);
   expect(g.members.find((m: any) => m.id === id["Ravi"]).net_paise).toBe(-22500);

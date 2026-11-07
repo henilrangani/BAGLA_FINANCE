@@ -5,7 +5,7 @@ Never commit real values. `.env*` files are git-ignored. Secrets go in the host'
 ## Backend (FastAPI, `backend/`)
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `DATABASE_URL` | yes (prod) | local dev Postgres | `postgresql+asyncpg://USER:PASS@HOST:5432/DB`. SQLite (`sqlite+aiosqlite:///…`) is for tests/E2E only. |
+| `DATABASE_URL` | **yes, always** | none (start-up fails without it) | `postgresql+asyncpg://USER:PASS@HOST:PORT/DB`; managed DBs may add `?sslmode=require` (handled). Local dev: `127.0.0.1:55432/bagla_dev`. SQLite (`sqlite+aiosqlite:///…`) is for tests/E2E only. |
 | `JWT_SECRET` | **yes** | none | ≥ 32 random characters; weak or placeholder values are refused at startup. Generate: `python -c "import secrets;print(secrets.token_urlsafe(48))"`. Rotating it signs everyone out of access tokens; refresh sessions remain DB-backed. |
 | `ENVIRONMENT` | yes (prod) | `development` | `development` \| `test` \| `staging` \| `production`. Staging/production enable HSTS and the safety checks below. |
 | `CORS_ORIGINS` | yes (prod) | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated exact origins of the web app. Never `*` (credentials are allowed). |

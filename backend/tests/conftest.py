@@ -32,6 +32,12 @@ async def fresh_db():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     else:
+        # This drops every table. Refuse anything that isn't clearly a throwaway test database (the legacy local
+        # database is `bagla_finance` on localhost:5432; it must never be reachable from here).
+        name = engine.url.database or ""
+        if "test" not in name.lower():
+            pytest.exit(f"Refusing to run the PostgreSQL test suite against database '{name}': it drops all tables. "
+                        "Use a throwaway database whose name contains 'test'.", returncode=2)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)

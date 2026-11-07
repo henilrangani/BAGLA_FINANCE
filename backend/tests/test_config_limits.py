@@ -41,3 +41,23 @@ def test_one_database_url_works_for_api_and_migrations():
     assert s3.app_database_url == "postgresql+asyncpg://u:p@h/db"
     lite = Settings(jwt_secret=SECRET, database_url="sqlite+aiosqlite:///x.db")
     assert lite.app_database_url == "sqlite+aiosqlite:///x.db"
+
+
+def test_database_url_is_required_so_nothing_falls_back_to_the_legacy_database(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    with pytest.raises(ValidationError) as e:
+        Settings(_env_file=None, jwt_secret=SECRET)
+    assert "database_url" in str(e.value)
+
+
+def test_postgres_test_suite_refuses_a_non_test_database():
+    """The PostgreSQL suite drops every table, so it must refuse e.g. the legacy `bagla_finance` database."""
+    import os
+    import subprocess
+    import sys
+
+    env = {**os.environ, "TEST_DATABASE_URL": "postgresql+asyncpg://bagla:x@127.0.0.1:1/bagla_finance"}
+    r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/test_money.py"],
+                       env=env, capture_output=True, text=True, timeout=120)
+    assert r.returncode == 2, r.stdout[-800:]
+    assert "Refusing to run the PostgreSQL test suite against database 'bagla_finance'" in r.stdout

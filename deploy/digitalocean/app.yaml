@@ -1,0 +1,80 @@
+# DigitalOcean App Platform spec for the private beta. PREPARED, NOT APPLIED (needs founder approval and a
+# DigitalOcean account). Review it, then `doctl apps create --spec deploy/digitalocean/app.yaml`.
+# Secrets are placeholders: set them as encrypted values in the control panel, never in Git.
+name: bagla-beta
+region: blr                      # Bangalore (App Platform: BLR available; Managed PostgreSQL: BLR1 available)
+
+databases:
+  - name: bagla-db
+    engine: PG
+    production: true             # a managed cluster created beforehand (NOT a dev database)
+    cluster_name: bagla-beta-pg  # created separately in BLR1, single node 1 GiB, PostgreSQL 16
+    db_name: bagla_beta
+    db_user: bagla_app
+
+services:
+  - name: api
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    github: { repo: henilrangani/BAGLA_FINANCE, branch: main, deploy_on_push: false }
+    instance_size_slug: apps-s-1vcpu-1gb-fixed   # $10/mo, 1 GiB (Argon2 password hashing needs headroom)
+    instance_count: 1
+    http_port: 8000
+    run_command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --workers 1
+    health_check: { http_path: /health, initial_delay_seconds: 10, period_seconds: 15 }
+    routes:
+      - path: /api/v1
+        preserve_path_prefix: true
+      - path: /health
+        preserve_path_prefix: true
+    envs: &api_env
+      - { key: ENVIRONMENT, value: production }
+      - { key: DATABASE_URL, value: "${bagla-db.DATABASE_URL}" }   # contains sslmode=require; the app adapts it
+      - { key: JWT_SECRET, type: SECRET, value: "SET-IN-CONTROL-PANEL" }
+      - { key: CORS_ORIGINS, value: "https://app.example.in" }      # the real beta domain
+      - { key: DB_POOL_SIZE, value: "5" }
+      - { key: DB_MAX_OVERFLOW, value: "5" }
+      - { key: FORWARDED_ALLOW_IPS, value: "*" }   # only App Platform's router can reach the service
+
+  - name: web
+    dockerfile_path: deploy/release/Dockerfile.web
+    github: { repo: henilrangani/BAGLA_FINANCE, branch: main, deploy_on_push: false }
+    instance_size_slug: apps-s-1vcpu-0.5gb       # $5/mo
+    instance_count: 1
+    http_port: 3000
+    health_check: { http_path: /, period_seconds: 30 }
+    routes:
+      - path: /
+    envs:
+      - { key: NODE_ENV, value: production }
+      - { key: HOST, value: 0.0.0.0 }
+      - { key: TRUST_PROXY, value: "1" }
+      - { key: GEMINI_API_KEY, type: SECRET, value: "" }            # empty = AI off (built-in rules)
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY             # runs `alembic upgrade head` once before each deploy; a failure stops the deploy
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    github: { repo: henilrangani/BAGLA_FINANCE, branch: main, deploy_on_push: false }
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    run_command: alembic upgrade head
+    envs: *api_env
+
+  - name: reminders
+    kind: SCHEDULED
+    schedule: { cron: "*/15 * * * *", time_zone: Asia/Kolkata }   # App Platform minimum interval is 15 minutes
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    github: { repo: henilrangani/BAGLA_FINANCE, branch: main, deploy_on_push: false }
+    instance_size_slug: apps-s-1vcpu-0.5gb       # billed only while running
+    run_command: python -m app.jobs.reminders
+    envs: *api_env
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+domains:
+  - domain: app.example.in      # placeholder; DNS change needs founder approval
+    type: PRIMARY

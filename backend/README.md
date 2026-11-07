@@ -19,11 +19,15 @@ Interactive API docs: http://127.0.0.1:8000/docs (disabled when `ENVIRONMENT` is
 ## Tests
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q             # SQLite (no setup needed)
-$env:TEST_DATABASE_URL="postgresql+asyncpg://bagla:bagla_local_only@localhost:5432/bagla_finance"
-.\.venv\Scripts\python.exe -m pytest -q             # same suite on PostgreSQL (DESTROYS that DB's tables)
+# PostgreSQL: start a throwaway, in-memory database on its own port first (never 5432, the legacy DB):
+#   docker run -d --rm --name bagla_pg_tests -e POSTGRES_PASSWORD=<random> -e POSTGRES_DB=bagla_test -p 127.0.0.1:55433:5432 --tmpfs /var/lib/postgresql/data postgres:16
+$env:TEST_DATABASE_URL="postgresql+asyncpg://postgres:<random>@127.0.0.1:55433/bagla_test"
+.\.venv\Scripts\python.exe -m pytest -q             # same suite on PostgreSQL (DROPS that DB's tables)
 .\.venv\Scripts\ruff.exe check app migrations tests
 ```
-Only run the PostgreSQL suite against a **throwaway** local database. It drops and recreates every table.
+Only run the PostgreSQL suite against a **throwaway** database. It drops and recreates every table, so the test
+setup refuses any database whose name doesn't contain `test`. `DATABASE_URL` has no default (it used to point at the
+legacy local database).
 
 ## Layout
 - `app/models`: SQLAlchemy models (`ledger.py` is the authoritative ledger)
