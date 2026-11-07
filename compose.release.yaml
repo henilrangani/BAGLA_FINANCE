@@ -5,6 +5,11 @@
 # NEVER add "-v" to "down": that deletes the bagla_rc_pgdata volume and every record in it.
 name: bagla_rc
 
+# Container logs are capped (3 files x 10 MB per service) so they can't fill Docker's disk.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
 x-api-env: &api_env
   DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bagla_rc}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.release}@db:5432/${POSTGRES_DB:-bagla_beta_rc}
   JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.release (at least 32 random characters)}
@@ -28,6 +33,7 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
+    logging: *logging
 
   migrate:
     build: { context: ./backend }
@@ -37,6 +43,7 @@ services:
     depends_on:
       db: { condition: service_healthy }
     restart: "no"
+    logging: *logging
 
   api:
     image: bagla_rc-backend
@@ -49,6 +56,7 @@ services:
       timeout: 5s
       retries: 12
     restart: unless-stopped
+    logging: *logging
 
   scheduler:
     # Reminder job every 15 minutes (the job takes a single-run lock). In-app reminders only; email is not connected.
@@ -58,6 +66,7 @@ services:
     depends_on:
       api: { condition: service_healthy }
     restart: unless-stopped
+    logging: *logging
 
   web:
     build: { context: ., dockerfile: deploy/release/Dockerfile.web }
@@ -75,6 +84,7 @@ services:
       timeout: 5s
       retries: 12
     restart: unless-stopped
+    logging: *logging
 
   gateway:
     # One origin for the browser: the app at /, the API at /api/v1 (required by the cookie and CSP design).
@@ -85,6 +95,7 @@ services:
       api: { condition: service_healthy }
       web: { condition: service_healthy }
     restart: unless-stopped
+    logging: *logging
 
 volumes:
   # Created as bagla_rc_pgdata (project name + _pgdata). Removing it deletes all release data.
