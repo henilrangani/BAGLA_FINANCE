@@ -17,10 +17,10 @@ import { parseRupeeInput } from "../utils/money";
 import { CloseButton, Modal } from "../components/ui/Modal";
 
 export const CashWalletView: React.FC = () => {
-  const { cashWallet, updateCashBalance, transactions, addTransaction, settings } = useFinance();
+  const { cashWallet, adjustCashWallet, transactions, addTransaction, settings } = useFinance();
 
   const [isAdjustOpen, setIsAdjustOpen] = useState(false);
-  const [actualBalanceInput, setActualBalanceInput] = useState(cashWallet.balance.toString());
+  const [actualBalanceInput, setActualBalanceInput] = useState(cashWallet.currentBalance.toString());
   const [adjustmentReason, setAdjustmentReason] = useState("");
 
   const [quickCashAmount, setQuickCashAmount] = useState("");
@@ -36,7 +36,7 @@ export const CashWalletView: React.FC = () => {
     const newBal = parsedBal.rupees;
     if (isNaN(newBal)) return;
 
-    updateCashBalance(newBal, adjustmentReason || "Manual Physical Wallet Count");
+    adjustCashWallet(newBal, adjustmentReason || "Manual Physical Wallet Count");
     setIsAdjustOpen(false);
   };
 
@@ -99,10 +99,10 @@ export const CashWalletView: React.FC = () => {
             Current Physical Cash in Pocket
           </span>
           <span className="text-4xl sm:text-5xl font-black text-white tracking-tight">
-            ₹{cashWallet.balance.toLocaleString("en-IN")}
+            ₹{cashWallet.currentBalance.toLocaleString("en-IN")}
           </span>
           <span className="text-xs text-slate-400 block mt-2 font-medium">
-            Last reconciled on {cashWallet.lastReconciledAt}
+            Last reconciled on {cashWallet.lastAdjustedDate}
           </span>
         </div>
 
@@ -117,6 +117,7 @@ export const CashWalletView: React.FC = () => {
               type="text"
               value={quickCashMerchant}
               onChange={e => setQuickCashMerchant(e.target.value)}
+              aria-label="What the cash was spent on"
               placeholder="e.g. Chai, Auto, Veggies"
               className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none focus:border-indigo-500"
             />
@@ -124,6 +125,7 @@ export const CashWalletView: React.FC = () => {
               type="number"
               value={quickCashAmount}
               onChange={e => setQuickCashAmount(e.target.value)}
+              aria-label="Cash amount in rupees"
               placeholder="₹"
               className="w-20 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-bold text-xs outline-none focus:border-indigo-500"
             />
@@ -178,7 +180,7 @@ export const CashWalletView: React.FC = () => {
 
       {/* Cash Reconcile Modal */}
       {isAdjustOpen && (
-        <Modal onClose={() => { setAdjustmentReason(""); setActualBalanceInput(cashWallet.balance.toString()); setIsAdjustOpen(false); }} dirty={actualBalanceInput !== cashWallet.balance.toString() || !!adjustmentReason.trim()} labelledBy="cash-adjust-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
+        <Modal onClose={() => { setAdjustmentReason(""); setActualBalanceInput(cashWallet.currentBalance.toString()); setIsAdjustOpen(false); }} dirty={actualBalanceInput !== cashWallet.currentBalance.toString() || !!adjustmentReason.trim()} labelledBy="cash-adjust-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-sm animate-fadeIn">{close => (<>
           <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 p-6 space-y-4 text-xs shadow-2xl">
             <h3 id="cash-adjust-title" className="font-bold text-base text-gray-900 dark:text-white">Reconcile Physical Cash</h3>
             <p className="text-gray-500 font-medium">

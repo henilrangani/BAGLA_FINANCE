@@ -485,7 +485,7 @@ export const PrivacyCenterView: React.FC = () => {
       <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-xs space-y-5">
         <div className="border-b border-gray-100 dark:border-slate-800 pb-4">
           <h3 className="text-base font-bold text-gray-950 dark:text-white">
-            Data Portability & Instant Erasure (DPDP Act Compliance)
+            Data Portability & Instant Erasure
           </h3>
           <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
             You are the sovereign owner of your financial data. Export or destroy your ledger at any moment.
