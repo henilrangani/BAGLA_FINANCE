@@ -31,8 +31,12 @@ async def user_flow(client: httpx.AsyncClient, ops: int, lat: dict, errors: list
 
     r = await call("register", "POST", "/api/v1/auth/register",
                    json={"email": email, "password": pw, "full_name": "Load User"})
+    r = await call("login", "POST", "/api/v1/auth/login", json={"email": email, "password": pw})
     h = {"Authorization": f"Bearer {r.json()['access_token']}"}
-    acc = (await call("accounts", "GET", "/api/v1/accounts", headers=h)).json()[0]["id"]
+    # Dashboard load: accounts, monthly summary and recent entries.
+    acc = (await call("dashboard_accounts", "GET", "/api/v1/accounts", headers=h)).json()[0]["id"]
+    await call("dashboard_summary", "GET", "/api/v1/reports/summary", headers=h)
+    await call("dashboard_recent", "GET", "/api/v1/transactions?limit=10", headers=h)
     expected = 0
     for i in range(ops):
         amount = 100 + i * 7
@@ -45,7 +49,8 @@ async def user_flow(client: httpx.AsyncClient, ops: int, lat: dict, errors: list
         if i % 4 == 0:
             await call("tx_list", "GET", "/api/v1/transactions?limit=50", headers=h)
         if i % 10 == 0:
-            await call("report", "GET", "/api/v1/reports/summary", headers=h)
+            await call("analytics", "GET", "/api/v1/reports/summary", headers=h)
+            await call("analytics_networth", "GET", "/api/v1/reports/net-worth", headers=h)
     g = (await call("group_create", "POST", "/api/v1/groups", headers=h,
                     json={"name": "Load group", "members": [{"display_name": "Friend"}]})).json()
     friend = next(m["id"] for m in g["members"] if m["display_name"] == "Friend")
@@ -69,12 +74,19 @@ async def main(base: str, users: int, ops: int) -> None:
     crashed = [r for r in results if isinstance(r, Exception)]
     mismatched = [r for r in results if not isinstance(r, Exception) and r[0] != r[1]]
     total = sum(len(v) for v in lat.values())
+    def pct(v: list[float], q: float) -> float:
+        return v[min(len(v) - 1, max(0, int(round(len(v) * q)) - 1))]
+
+    every = sorted(x for v in lat.values() for x in v)
     print(f"users={users} ops/user={ops} requests={total} wall={wall:.1f}s throughput={total / wall:.1f} req/s")
+    print(f"  ALL           n={total:4d} p50={statistics.median(every):7.1f}ms p95={pct(every, .95):7.1f}ms "
+          f"p99={pct(every, .99):7.1f}ms max={every[-1]:7.1f}ms")
     for name, v in sorted(lat.items()):
         v.sort()
-        p95 = v[int(len(v) * 0.95) - 1] if len(v) > 1 else v[0]
-        print(f"  {name:13s} n={len(v):4d} p50={statistics.median(v):7.1f}ms p95={p95:7.1f}ms max={v[-1]:7.1f}ms")
-    print(f"errors={len(errors)} crashed_flows={len(crashed)} ledger_mismatches={len(mismatched)}")
+        print(f"  {name:18s} n={len(v):4d} p50={statistics.median(v):7.1f}ms p95={pct(v, .95):7.1f}ms "
+              f"p99={pct(v, .99):7.1f}ms max={v[-1]:7.1f}ms")
+    print(f"errors={len(errors)} ({100 * len(errors) / max(1, total):.2f}%) crashed_flows={len(crashed)} "
+          f"ledger_mismatches={len(mismatched)}")
     if errors[:5]:
         print("  first errors:", errors[:5])
     if crashed[:2]:
