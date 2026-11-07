@@ -169,7 +169,8 @@ export function fromServerBudget(b: ServerBudget): Budget {
     id: b.id,
     name: b.name,
     type: b.category ? "category" : (b.period as Budget["type"]),
-    categoryId: b.category || undefined,
+    // Budgets created outside the app store a category name ("Groceries"); the app matches entries by id.
+    categoryId: b.category ? toCategoryId(b.category) : undefined,
     amount: fromPaise(b.amount_paise),
     spent: fromPaise(b.spent_paise),
     period: b.period,

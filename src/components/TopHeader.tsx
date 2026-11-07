@@ -84,11 +84,15 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenLanding }) => {
       {/* Left: Greeting (Desktop) / Mobile Mini Title */}
       <div className="flex items-center gap-3">
         <div>
-          <h1 className="text-base sm:text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
-            <span>{greeting}{settings.name ? `, ${settings.name.split(" ")[0]}` : ""}</span>
-            <span className="text-sm">👋</span>
+          {/* Below very wide screens the full greeting wrapped under the header buttons: show the first name only. */}
+          <h1 className="text-base sm:text-lg font-black text-gray-900 dark:text-white flex items-center gap-2 whitespace-nowrap">
+            <span>
+              <span className={settings.name ? "sr-only 2xl:not-sr-only" : ""}>{greeting}{settings.name ? ", " : ""}</span>
+              {settings.name ? settings.name.split(" ")[0] : ""}
+            </span>
+            <span className="text-sm" aria-hidden="true">👋</span>
           </h1>
-          <p className="text-[11px] text-gray-500 dark:text-slate-400 font-medium hidden sm:block">
+          <p className="text-[11px] text-gray-500 dark:text-slate-400 font-medium hidden 2xl:block">
             Every Rupee. Clearly Managed.
           </p>
         </div>

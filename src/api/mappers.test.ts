@@ -98,6 +98,15 @@ describe("budgets and goals", () => {
     expect(b).toMatchObject({ amount: 8000.5, spent: 123.45, alertThreshold: 0.8, type: "category" });
   });
 
+  it("maps a category NAME from the server to the app's category id (budgets created via the API)", async () => {
+    const { withDerivedSpent } = await import("../utils/ledger");
+    const b = fromServerBudget({ id: "b", name: "Groceries", category: "Groceries", period: "monthly", amount_paise: 900000,
+      alert_threshold_pct: 80, start_date: "2026-11-01", end_date: null, spent_paise: 0 });
+    expect(b.categoryId).toBe("cat-groceries");
+    const tx: any = { id: "t", amount: 120.5, type: "expense", categoryId: "cat-groceries", date: "2026-11-05", status: "verified" };
+    expect(withDerivedSpent([b], [tx], "2026-11-07")[0].spent).toBe(120.5); // was 0: "Groceries" never matched "cat-groceries"
+  });
+
   it("accepts both goal field spellings", () => {
     expect(toServerGoal({ title: "Trip", targetAmount: 50000, targetDate: "2027-01-01" })).toEqual({
       name: "Trip", target_paise: 5000000, deadline: "2027-01-01" });
