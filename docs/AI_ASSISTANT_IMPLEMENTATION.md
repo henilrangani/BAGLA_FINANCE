@@ -4,7 +4,7 @@
 | Mode | When | Where answers come from | Labelled as |
 |---|---|---|---|
 | **Built-in rules** | No provider key on the server, offline, or offline mode on | `src/utils/insights.ts`, on the device, from recorded entries | "From your records (no AI)", plus the period and entry count |
-| **AI** | `GET /api/ai/status` reports `configured: true` | `lib/ai.ts handleChat` → Google Gemini (`GEMINI_MODEL`, default `gemini-3.1-flash-lite` (corrected 2026-11-07: the old default `gemini-3.1-flash-lite` does not exist on Google's pricing page)) | "AI answer", plus what it was based on and that it can be wrong |
+| **AI** | `GET /api/ai/status` reports `configured: true` | `lib/ai.ts handleChat` → Google Gemini (`GEMINI_MODEL`, default `gemini-3.1-flash-lite` (corrected 2026-11-07: the old default `gemini-3.7-flash` does not exist on Google's pricing page)) | "AI answer", plus what it was based on and that it can be wrong |
 
 If the provider fails (an error, a timeout, or `aiAvailable: false`), the question is answered with built-in rules, and the answer says so.
 

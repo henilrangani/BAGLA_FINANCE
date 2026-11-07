@@ -27,7 +27,7 @@
 ## AI financial coach
 | Capability | Status | Where / gap |
 |---|---|---|
-| Gemini integration | 🟡 | Code ready; model name `gemini-3.1-flash-lite` (corrected 2026-11-07: the old default `gemini-3.1-flash-lite` does not exist on Google's pricing page); no key configured; pricing not approved |
+| Gemini integration | 🟡 | Code ready; model name `gemini-3.1-flash-lite` (corrected 2026-11-07: the old default `gemini-3.7-flash` does not exist on Google's pricing page); no key configured; pricing not approved |
 | Explanations / insights / budget suggestions | 🟡 | Routes exist; deterministic fallbacks; not tested with a live key |
 | Unusual-spending detection | 🟡 | AI-only (see above) |
 | Privacy-aware context | ✅ | Minimised payloads; no ids, emails or passwords |
