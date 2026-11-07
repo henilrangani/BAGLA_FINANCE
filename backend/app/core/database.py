@@ -10,8 +10,11 @@ _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 def get_engine() -> AsyncEngine:
     global _engine, _sessionmaker
     if _engine is None:
-        url = get_settings().database_url
-        _engine = create_async_engine(url, pool_pre_ping=True)
+        s = get_settings()
+        url = s.app_database_url
+        pool = {} if url.startswith("sqlite") else {"pool_size": s.db_pool_size, "max_overflow": s.db_max_overflow,
+                                                     "pool_recycle": 1800}
+        _engine = create_async_engine(url, pool_pre_ping=True, **pool)
         if url.startswith("sqlite"):
             # SQLite ignores foreign keys unless asked (tests / local only).
             @event.listens_for(_engine.sync_engine, "connect")

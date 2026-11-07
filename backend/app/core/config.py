@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,6 +16,10 @@ class Settings(BaseSettings):
     # Session refreshes per IP per 15 minutes (separate bucket; see deps.refresh_limiter).
     refresh_rate_limit: int = 120
     database_url: str = "postgresql+asyncpg://bagla:bagla@localhost:5432/bagla_finance"
+    # Connection pool per API process. Small managed plans allow few connections (e.g. ~22 usable on 1 GiB):
+    # keep (pool_size + max_overflow) x processes below the plan limit.
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 15
@@ -68,12 +73,32 @@ class Settings(BaseSettings):
         return self
 
     @property
+    def app_database_url(self) -> str:
+        """URL for the async API engine (asyncpg takes ssl=..., not libpq's sslmode=...)."""
+        return _ssl_param(self.database_url, "ssl")
+
+    @property
+    def migration_database_url(self) -> str:
+        """URL for Alembic (psycopg/libpq takes sslmode=..., not ssl=...)."""
+        return _ssl_param(self.database_url.replace("+asyncpg", "+psycopg"), "sslmode")
+
+    @property
     def is_production(self) -> bool:
         return self.environment in {"staging", "production"}
 
     @property
     def cors_origin_list(self) -> list[str]:
         return [x.strip() for x in self.cors_origins.split(",") if x.strip()]
+
+
+def _ssl_param(url: str, name: str) -> str:
+    """Managed databases hand out ...?sslmode=require. Rename the SSL query parameter to what the driver
+    expects, keeping its value and every other parameter, so one DATABASE_URL works for API and migrations."""
+    if not url.startswith("postgresql"):
+        return url
+    parts = urlsplit(url)
+    query = [((name if k in ("ssl", "sslmode") else k), v) for k, v in parse_qsl(parts.query, keep_blank_values=True)]
+    return urlunsplit(parts._replace(query=urlencode(query)))
 
 
 @lru_cache

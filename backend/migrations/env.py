@@ -6,7 +6,7 @@ from app.models import Base  # noqa: F401  (imports every model)
 
 config = context.config
 # The URL always comes from settings / environment, never from alembic.ini.
-config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("+asyncpg", "+psycopg"))
+config.set_main_option("sqlalchemy.url", get_settings().migration_database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 
